@@ -2,7 +2,7 @@
 
 React + TypeScript web app to track equity holdings by **ISIN**.
 
----WEBSITE IS DEPLOYED, WITH ERROR--
+---WEBSITE IS DEPLOYED--
 https://equity-tracker-latest.onrender.com
 
 ## Features
