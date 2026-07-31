@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.openfigi-out.txt
+yahoo-out.txt
+openfigi-out.txt
+$null
 
 # Editor directories and files
 .vscode/*
