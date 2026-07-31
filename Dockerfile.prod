@@ -1,3 +1,7 @@
+# Alias of production Dockerfile for explicit builds:
+#   docker build -f Dockerfile.prod -t equity-tracker:prod .
+# Render can use either Dockerfile or Dockerfile.prod.
+
 # Build stage
 FROM node:22-alpine AS builder
 
@@ -10,15 +14,21 @@ COPY . .
 
 RUN npm run build
 
-# Serve stage
+# Serve stage — Express static + API proxies (OpenFIGI / Yahoo)
 FROM node:22-alpine
 
 WORKDIR /app
 
-RUN npm install -g serve
+ENV NODE_ENV=production
 
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY server.mjs ./
 COPY --from=builder /app/dist ./dist
 
+# Render sets PORT; default matches local Docker mapping
+ENV PORT=5173
 EXPOSE 5173
 
-CMD ["serve", "-s", "dist", "-l", "5173"]
+CMD ["npm", "run", "start"]

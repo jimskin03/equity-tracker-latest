@@ -33,6 +33,24 @@ function isValidIsin(isin: string): boolean {
   return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)
 }
 
+async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
+  const contentType = response.headers.get('content-type') || ''
+  const text = await response.text()
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      `${label} returned non-JSON (${response.status}). ` +
+        'The API proxy may be missing in this deployment.',
+    )
+  }
+
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(`${label} returned invalid JSON (${response.status})`)
+  }
+}
+
 async function mapIsinWithOpenFigi(isin: string): Promise<OpenFigiMapping> {
   const response = await fetch('/api/openfigi/v3/mapping', {
     method: 'POST',
@@ -46,7 +64,7 @@ async function mapIsinWithOpenFigi(isin: string): Promise<OpenFigiMapping> {
     throw new Error(`OpenFIGI lookup failed (${response.status})`)
   }
 
-  const payload = (await response.json()) as OpenFigiResponseItem[]
+  const payload = await parseJsonResponse<OpenFigiResponseItem[]>(response, 'OpenFIGI')
   const first = payload[0]
 
   if (!first || first.error || !first.data?.length) {
@@ -125,13 +143,21 @@ async function fetchYahooQuote(symbol: string): Promise<YahooChartMeta | null> {
     return null
   }
 
-  const payload = await response.json()
-  const result = payload?.chart?.result?.[0]
-  if (!result?.meta) {
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
     return null
   }
 
-  return result.meta as YahooChartMeta
+  try {
+    const payload = await response.json()
+    const result = payload?.chart?.result?.[0]
+    if (!result?.meta) {
+      return null
+    }
+    return result.meta as YahooChartMeta
+  } catch {
+    return null
+  }
 }
 
 async function resolveLatestPrice(

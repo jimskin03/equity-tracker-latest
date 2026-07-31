@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: equity-tracker-latest
+    runtime: docker
+    dockerfilePath: ./Dockerfile.prod
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
