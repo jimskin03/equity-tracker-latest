@@ -5,6 +5,13 @@ React + TypeScript web app to track equity holdings by **ISIN**.
 ---WEBSITE IS DEPLOYED--
 https://equity-tracker-latest.onrender.com
 
+-Docker
+-Visual Studio 
+ -Zoo Code
+Hosting by: Render
+
+ Made by Grok 4.5
+
 ## Features
 
 - Enter **ISIN**, **holdings (quantity)**, and **cost price**
