@@ -24,7 +24,7 @@ After applying the migrations:
 
 1. Run `supabase/validation/reconcile_transactions.sql`; expect no `FAIL` rows.
 2. Run `supabase/validation/validate_portfolio_schema.sql`; expect every row to report `PASS`.
-3. Confirm `expense` and `portfolio` are exposed in the Supabase API schema settings.
+3. Confirm `expense` and `portfolio` are exposed through the Supabase API. The portfolio migration adds `portfolio` to PostgREST's existing schema list and reloads its configuration.
 4. Confirm every deployed finance origin is listed in Supabase Auth redirect URLs.
 
 ## Browser holding cutover
@@ -57,7 +57,7 @@ Environment overrides are available as `VITE_SUPABASE_URL` and `VITE_SUPABASE_PU
 
 The Blueprint declares `expensetracker.cryptgregresearch.org` for the existing Render web service. In Render, add and verify that custom domain, then create the DNS provider's CNAME record `expensetracker -> equity-tracker-latest.onrender.com`. Keep the Render subdomain enabled until the custom domain is verified and the localStorage migration window is complete; disabling it causes the old URL to return 404 rather than redirect.
 
-In Supabase API settings, expose the `portfolio` schema after applying the portfolio migration. The current deployed API exposes only `public`, `graphql_public`, and `expense`; until `portfolio` is exposed, Portfolio will show a setup error and cannot save holdings.
+The portfolio migration retains the deployed `public`, `graphql_public`, and `expense` API schemas, adds `portfolio`, and reloads PostgREST. The currently deployed API has not received that migration, so Portfolio cannot save holdings until it is applied.
 
 ## Rollback
 
