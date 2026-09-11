@@ -35,6 +35,8 @@ The Express server serves the built SPA, the preserved Ledger module, and the `/
 
 Apply the SQL files in `supabase/migrations` in filename order, then run both scripts in `supabase/validation`. The `expense` and `portfolio` schemas must be exposed through the Supabase Data API.
 
+For the requested deployment URL, add the custom domain `expensetracker.cryptgregresearch.org` to this Render service and create a DNS CNAME record named `expensetracker` pointing to `equity-tracker-latest.onrender.com`. Verify the domain in Render before disabling the old Render subdomain; Render manages the TLS certificate automatically.
+
 See [docs/MIGRATION_ROLLOUT.md](docs/MIGRATION_ROLLOUT.md) for the migration sequence, shared-login requirements, acceptance checks, staged rollout, and rollback plan. The preserved ledger invariants are documented in [docs/LEDGER_ARCHITECTURE.md](docs/LEDGER_ARCHITECTURE.md).
 
 ## Security model

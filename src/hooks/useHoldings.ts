@@ -5,6 +5,17 @@ import type { Holding, SecurityLookupResult } from '../types'
 
 const LEGACY_STORAGE_KEY = 'equity-tracker-holdings-v1'
 
+function readableError(value: unknown, fallback: string): string {
+  if (value && typeof value === 'object') {
+    const candidate = value as { code?: string; message?: string; details?: string; hint?: string }
+    if (candidate.code === 'PGRST106' || candidate.message?.toLowerCase().includes('invalid schema')) {
+      return 'Portfolio is not enabled in Supabase yet. Apply the portfolio migration, then expose the portfolio schema in Supabase API settings.'
+    }
+    return [candidate.message, candidate.details, candidate.hint].filter(Boolean).join(' — ') || fallback
+  }
+  return value instanceof Error ? value.message : fallback
+}
+
 interface SecurityRow {
   id: string
   isin: string
@@ -217,7 +228,7 @@ export function useHoldings(userId: string) {
         if (imported) setStatus(`Imported ${imported} browser holding${imported === 1 ? '' : 's'} into Supabase.`)
       } catch (bootError) {
         if (!active) return
-        setError(bootError instanceof Error ? bootError.message : 'Could not load portfolio')
+        setError(readableError(bootError, 'Could not load portfolio'))
       } finally {
         if (active) setIsLoading(false)
       }
@@ -239,7 +250,7 @@ export function useHoldings(userId: string) {
       await reload(accountId)
       setStatus(lookup.latestPrice > 0 ? `Saved ${lookup.securityName} (${lookup.ticker})` : `Saved ${lookup.securityName}. Latest market price unavailable — using cost price.`)
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : 'Failed to save holding'
+      const message = readableError(saveError, 'Failed to save holding')
       setError(message); throw saveError
     } finally { setIsLoading(false) }
   }, [accountId, clearMessages, holdings, reload])
@@ -267,7 +278,7 @@ export function useHoldings(userId: string) {
       const rows = await reload(accountId)
       setStatus(`Updated ${rows.find((holding) => holding.id === id)?.securityName || current.securityName}`)
     } catch (updateError) {
-      const message = updateError instanceof Error ? updateError.message : 'Failed to update holding'
+      const message = readableError(updateError, 'Failed to update holding')
       setError(message); throw updateError
     } finally { setIsLoading(false) }
   }, [accountId, clearMessages, holdings, reload])
@@ -284,7 +295,7 @@ export function useHoldings(userId: string) {
       if (deleteError) throw deleteError
       await reload(accountId); setStatus('Holding deleted')
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete holding')
+      setError(readableError(deleteError, 'Failed to delete holding'))
     } finally { setIsLoading(false) }
   }, [accountId, clearMessages, reload])
 
@@ -300,7 +311,7 @@ export function useHoldings(userId: string) {
       }))
       await reload(accountId); setStatus('Latest prices refreshed')
     } catch (refreshError) {
-      setError(refreshError instanceof Error ? refreshError.message : 'Failed to refresh prices')
+      setError(readableError(refreshError, 'Failed to refresh prices'))
     } finally { setIsLoading(false) }
   }, [accountId, clearMessages, holdings, reload])
 

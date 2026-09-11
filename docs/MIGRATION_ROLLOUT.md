@@ -53,6 +53,12 @@ Environment overrides are available as `VITE_SUPABASE_URL` and `VITE_SUPABASE_PU
 8. Promote the same build to the production finance subdomain.
 9. Keep the old expense and equity deployments available during the rollback window.
 
+## Render custom domain
+
+The Blueprint declares `expensetracker.cryptgregresearch.org` for the existing Render web service. In Render, add and verify that custom domain, then create the DNS provider's CNAME record `expensetracker -> equity-tracker-latest.onrender.com`. Keep the Render subdomain enabled until the custom domain is verified and the localStorage migration window is complete; disabling it causes the old URL to return 404 rather than redirect.
+
+In Supabase API settings, expose the `portfolio` schema after applying the portfolio migration. The current deployed API exposes only `public`, `graphql_public`, and `expense`; until `portfolio` is exposed, Portfolio will show a setup error and cannot save holdings.
+
 ## Rollback
 
 - Application: route traffic back to the existing expense and equity deployments. The preserved browser payload remains available for the old equity UI.
