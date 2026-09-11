@@ -7,7 +7,9 @@ interface OpenFigiMapping {
   exchCode?: string
   securityType?: string
   marketSector?: string
+  figi?: string
   compositeFIGI?: string
+  shareClassFIGI?: string
 }
 
 interface OpenFigiResponseItem {
@@ -269,6 +271,13 @@ export async function lookupSecurityByIsin(rawIsin: string): Promise<SecurityLoo
     exchangeCode: mapping.exchCode,
     latestPrice: quote.latestPrice,
     currency: quote.currency,
+    // Identifiers come from OpenFIGI directly, so a holding carries its FIGI
+    // even when nothing is cached in the instrument master.
+    assetType: mapping.marketSector ? mapping.marketSector.toLowerCase() : 'equity',
+    figi: mapping.figi,
+    compositeFigi: mapping.compositeFIGI,
+    shareclassFigi: mapping.shareClassFIGI,
+    instrumentSource: 'openfigi',
   }
 }
 
