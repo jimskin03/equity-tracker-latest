@@ -25,7 +25,6 @@
     font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   .container{padding:20px;padding-bottom:96px;max-width:900px;margin:0 auto}
   .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
-  .home-link{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.04em;text-decoration:none;white-space:nowrap}
   .auth-area{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
   .auth-user{color:var(--text);font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .auth-btn{background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);cursor:pointer;font-size:12px;font-weight:700;padding:9px 12px;white-space:nowrap}
@@ -48,8 +47,6 @@
     box-shadow:0 -8px 24px rgba(0,0,0,0.5)}
   .nav button{background:none;border:0;color:var(--muted);font-size:14px;font-weight:600;
     padding:10px 14px;flex:1;cursor:pointer;transition:color .15s}
-  .nav-home{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.04em;
-    padding:10px 14px;text-decoration:none;white-space:nowrap}
   .nav button.active-tab{color:var(--accent)}
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
     padding:16px;margin-bottom:14px}
@@ -145,7 +142,6 @@
   <div class="container">
 
     <header class="topbar">
-      <a class="home-link" href="https://cryptgregresearch.org/" aria-label="Back to Cryptgreg Research">⌂ HOME</a>
       <div id="authArea" class="auth-area" aria-live="polite"></div>
     </header>
     <p id="dataMessage" class="data-message" role="status" aria-live="polite"></p>
@@ -383,7 +379,6 @@
     </div>
 
   <div class="nav" role="navigation" aria-label="Main navigation">
-    <a class="nav-home" href="https://cryptgregresearch.org/" aria-label="Back to Cryptgreg Research">CRYPTGREG RESEARCH</a>
     <button id="tabRecords" class="active-tab" onclick="showPage('recordsPage')">Records</button>
     <button id="tabAdd" onclick="showPage('addPage')">Add</button>
     <button id="tabRecurring" onclick="showPage('recurringPage')">Recurring</button>

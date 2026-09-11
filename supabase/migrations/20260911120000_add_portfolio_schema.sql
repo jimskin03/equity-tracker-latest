@@ -4,6 +4,12 @@
 create schema if not exists portfolio;
 grant usage on schema portfolio to authenticated;
 
+-- Keep the existing public, GraphQL, and expense API surfaces available while
+-- adding Portfolio. Without this PostgREST configuration the browser client
+-- receives PGRST106 before RLS can evaluate the request.
+alter role authenticator set pgrst.db_schemas = 'public, graphql_public, expense, portfolio';
+notify pgrst, 'reload config';
+
 create table if not exists portfolio.accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references auth.users(id) on delete cascade,

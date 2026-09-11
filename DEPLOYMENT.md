@@ -1,16 +1,17 @@
 # Deployment & Architecture (concise)
 
 Summary
-- App: Equity Tracker — React + TypeScript SPA that tracks holdings by ISIN.
-- Live: https://equity-tracker-latest.onrender.com
-- Purpose: Client UI persisted in browser localStorage; server provides static hosting + API proxies for third-party data.
+- App: CryptGreg Finance — React + TypeScript workspace with Ledger and Portfolio modules.
+- Reference deployment: https://equity-tracker-latest.onrender.com (owned by the previous deployment account)
+- Canonical deployment target: https://expensetracker.cryptgregresearch.org
+- Purpose: Supabase-backed finance data with a small server for static hosting and third-party API proxies.
 
 Architecture (high level)
 - Frontend: React (TypeScript), built with Vite → produces /dist
 - Backend: small Express server (server.mjs) serving static files and proxying third-party APIs
 - Containerization: multi-stage Docker builds (Dockerfile / Dockerfile.prod). Dev image in Dockerfile.dev.
 - Deployment config: render.yaml for Render (uses Dockerfile.prod)
-- No external DB: portfolio stored in browser localStorage
+- Database: Expense Ledger and account-scoped Portfolio records are stored in Supabase.
 
 Tools & core libs
 - React, react-dom (frontend)
@@ -57,7 +58,7 @@ Run & build (quick commands)
   - docker run --rm -p 5173:5173 equity-tracker:prod
 
 Render deployment
-- render.yaml configured to build/run the Docker image:
+- `render.yaml` configures a web service to build/run the Docker image:
   - runtime: docker
   - dockerfilePath: ./Dockerfile.prod
   - envVars: NODE_ENV=production
@@ -72,7 +73,9 @@ Ports
 - Default application port: 5173 (used in local/dev Docker and server default)
 
 Storage / persistence
-- Portfolio stored in browser localStorage (no server-side persistence)
+- Expense Ledger records remain in the canonical `expense` schema.
+- Portfolio accounts, securities, holdings, prices, and trades are stored in the account-scoped `portfolio` schema.
+- The first authenticated Portfolio load imports the previous browser payload once; the original payload remains as a rollback copy.
 
 Minimal troubleshooting
 - Proxy errors:
@@ -102,7 +105,4 @@ Quick copy-ready steps to deploy locally with Docker (summary)
 3. Visit:
    http://localhost:5173
 
-If you want, I can:
-- Add this file to the repo (create DEPLOYMENT.md) and open a pull request, or
-- Append a condensed "Deployment & Architecture" section to README.md directly.  
-Tell me which you prefer and I will create the file or update README.md for you.
+For a user-owned deployment, create a Render web service from this repository, let it read `render.yaml`, and add the `expensetracker.cryptgregresearch.org` custom domain. Keep the reference deployment available until the new service and DNS are verified.
