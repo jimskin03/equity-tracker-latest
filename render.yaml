@@ -5,6 +5,11 @@ services:
     dockerfilePath: ./Dockerfile.prod
     plan: free
     healthCheckPath: /
+    # Render still keeps the onrender.com hostname while DNS propagates. Once
+    # the custom domain is verified, it can be made the only public hostname
+    # with renderSubdomainPolicy: disabled in the Dashboard.
+    domains:
+      - expensetracker.cryptgregresearch.org
     envVars:
       - key: NODE_ENV
         value: production
