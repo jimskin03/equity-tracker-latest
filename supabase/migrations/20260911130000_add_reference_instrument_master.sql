@@ -1,5 +1,6 @@
 -- Global FinanceDatabase-backed instrument master. Additive and safe to run after
 -- the portfolio migration; existing portfolio rows remain readable throughout.
+-- Re-runnable: every statement is guarded so a second apply is a no-op.
 create schema if not exists reference;
 grant usage on schema reference to authenticated;
 
@@ -48,6 +49,8 @@ create index if not exists instruments_isin_idx on reference.instruments (upper(
 alter table portfolio.securities add column if not exists instrument_id uuid;
 alter table portfolio.securities drop constraint if exists securities_account_id_isin_key;
 alter table portfolio.securities drop constraint if exists portfolio_securities_account_id_isin_key;
+-- Guard the FK so the migration can be re-applied without an error.
+alter table portfolio.securities drop constraint if exists securities_instrument_fk;
 alter table portfolio.securities add constraint securities_instrument_fk
   foreign key (instrument_id) references reference.instruments(id) on delete restrict;
 

@@ -192,16 +192,22 @@ export async function searchInstruments(query: string, limit = 12): Promise<Inst
   if (term.length < 2) return []
   const pattern = `%${term.replace(/[%_]/g, '')}%`
   const { data, error } = await referenceDb.from('instruments')
-    .select('id,symbol,name,isin,exchange_code,currency_code,country,sector')
+    .select('id,symbol,name,isin,exchange_code,exchange_name,currency_code,country,sector,industry_group,industry,asset_type,cusip,figi,composite_figi,shareclass_figi,source')
     .or(`symbol.ilike.${pattern},name.ilike.${pattern},isin.ilike.${pattern}`)
     .order('name').limit(limit)
   if (error) throw error
   return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id), symbol: String(row.symbol), name: String(row.name),
-    isin: row.isin ? String(row.isin) : null, exchangeCode: row.exchange_code ? String(row.exchange_code) : null,
-    currency: row.currency_code ? String(row.currency_code) : null, country: row.country ? String(row.country) : null,
-    sector: row.sector ? String(row.sector) : null,
+    isin: str(row.isin) ?? null, exchangeCode: str(row.exchange_code) ?? null, currency: str(row.currency_code) ?? null,
+    country: str(row.country), sector: str(row.sector), exchangeName: str(row.exchange_name),
+    industryGroup: str(row.industry_group), industry: str(row.industry), assetType: str(row.asset_type),
+    cusip: str(row.cusip), figi: str(row.figi), compositeFigi: str(row.composite_figi),
+    shareclassFigi: str(row.shareclass_figi), instrumentSource: str(row.source),
   }))
+}
+
+function str(value: unknown): string | undefined {
+  return value === null || value === undefined || value === '' ? undefined : String(value)
 }
 
 async function lookupFromReference(query: string): Promise<SecurityLookupResult | null> {
@@ -210,7 +216,26 @@ async function lookupFromReference(query: string): Promise<SecurityLookupResult 
   const row = rows[0]
   if (!row?.isin) return null
   const quote = await resolveLatestPrice({ name: row.name, ticker: row.symbol, exchCode: row.exchangeCode || undefined })
-  return { instrumentId: row.id, isin: row.isin.toUpperCase(), securityName: row.name, ticker: quote.resolvedTicker || row.symbol, exchangeCode: row.exchangeCode || undefined, latestPrice: quote.latestPrice, currency: quote.currency || row.currency || 'USD' }
+  return {
+    instrumentId: row.id,
+    isin: row.isin.toUpperCase(),
+    securityName: row.name,
+    ticker: quote.resolvedTicker || row.symbol,
+    exchangeCode: row.exchangeCode || undefined,
+    latestPrice: quote.latestPrice,
+    currency: quote.currency || row.currency || 'USD',
+    assetType: row.assetType || undefined,
+    sector: row.sector || undefined,
+    industryGroup: row.industryGroup || undefined,
+    industry: row.industry || undefined,
+    country: row.country || undefined,
+    exchangeName: row.exchangeName || undefined,
+    cusip: row.cusip || undefined,
+    figi: row.figi || undefined,
+    compositeFigi: row.compositeFigi || undefined,
+    shareclassFigi: row.shareclassFigi || undefined,
+    instrumentSource: row.instrumentSource || 'financedatabase',
+  }
 }
 
 export async function lookupSecurity(query: string): Promise<SecurityLookupResult> {

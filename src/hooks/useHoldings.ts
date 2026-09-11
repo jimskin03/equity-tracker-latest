@@ -25,7 +25,6 @@ interface SecurityRow {
   exchange_code: string | null
   currency: string
 }
-
 interface HoldingRow {
   id: string
   security_id: string
@@ -64,6 +63,36 @@ async function ensurePortfolioAccount(userId: string): Promise<string> {
   return data.id as string
 }
 
+// Reference metadata from the FinanceDatabase instrument master. Only fields the
+// lookup actually resolved are sent, so a partial refresh (for example a
+// Yahoo-only price refresh) never blanks metadata that is already stored.
+const SECURITY_METADATA_COLUMNS = [
+  ['instrument_id', 'instrumentId'],
+  ['asset_type', 'assetType'],
+  ['sector', 'sector'],
+  ['industry_group', 'industryGroup'],
+  ['industry', 'industry'],
+  ['country', 'country'],
+  ['exchange_name', 'exchangeName'],
+  ['cusip', 'cusip'],
+  ['figi', 'figi'],
+  ['composite_figi', 'compositeFigi'],
+  ['shareclass_figi', 'shareclassFigi'],
+  ['instrument_source', 'instrumentSource'],
+] as const
+
+const SECURITY_SELECT =
+  'id, instrument_id, asset_type, sector, industry_group, industry, country, exchange_name, cusip, figi, composite_figi, shareclass_figi, instrument_source, isin, security_name, ticker, exchange_code, currency'
+
+function securityMetadata(security: SecurityLookupResult, accountId: string, isin: string): Record<string, string> {
+  const payload: Record<string, string> = { account_id: accountId, isin }
+  for (const [column, key] of SECURITY_METADATA_COLUMNS) {
+    const value = security[key]
+    if (typeof value === 'string' && value) payload[column] = value
+  }
+  return payload
+}
+
 async function saveSecurity(
   accountId: string,
   security: SecurityLookupResult,
@@ -71,10 +100,17 @@ async function saveSecurity(
   const key = security.instrumentId ? 'instrument_id' : 'isin'
   const existing = await portfolioDb.from('securities').select('id').eq('account_id', accountId).eq(key, security.instrumentId || security.isin).maybeSingle()
   if (existing.error) throw existing.error
-  const payload = { account_id: accountId, instrument_id: security.instrumentId || null, isin: security.isin, security_name: security.securityName, ticker: security.ticker, exchange_code: security.exchangeCode || null, currency: security.currency || 'USD' }
+  const payload = {
+    ...securityMetadata(security, accountId, security.isin),
+    security_name: security.securityName,
+    ticker: security.ticker,
+    exchange_code: security.exchangeCode || null,
+    currency: security.currency || 'USD',
+    metadata_updated_at: new Date().toISOString(),
+  }
   const { data, error } = existing.data
-    ? await portfolioDb.from('securities').update(payload).eq('id', existing.data.id).select('id, instrument_id, isin, security_name, ticker, exchange_code, currency').single()
-    : await portfolioDb.from('securities').insert(payload).select('id, instrument_id, isin, security_name, ticker, exchange_code, currency').single()
+    ? await portfolioDb.from('securities').update(payload).eq('id', existing.data.id).select(SECURITY_SELECT).single()
+    : await portfolioDb.from('securities').insert(payload).select(SECURITY_SELECT).single()
   if (error) throw error
   return data as SecurityRow
 }

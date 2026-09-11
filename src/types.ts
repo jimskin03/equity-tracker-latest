@@ -17,7 +17,21 @@ export interface HoldingFormData {
   costPrice: string
 }
 
-export interface SecurityLookupResult {
+export interface SecurityMetadata {
+  assetType?: string
+  sector?: string
+  industryGroup?: string
+  industry?: string
+  country?: string
+  exchangeName?: string
+  cusip?: string
+  figi?: string
+  compositeFigi?: string
+  shareclassFigi?: string
+  instrumentSource?: string
+}
+
+export interface SecurityLookupResult extends SecurityMetadata {
   instrumentId?: string
   isin: string
   securityName: string
@@ -27,13 +41,11 @@ export interface SecurityLookupResult {
   currency: string
 }
 
-export interface InstrumentSearchResult {
+export interface InstrumentSearchResult extends SecurityMetadata {
   id: string
   symbol: string
   name: string
   isin: string | null
   exchangeCode: string | null
   currency: string | null
-  country: string | null
-  sector: string | null
 }
