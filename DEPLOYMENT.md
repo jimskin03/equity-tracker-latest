@@ -65,9 +65,16 @@ Render deployment
   - Render sets PORT for the container (server reads process.env.PORT)
 - Health check: / (per render.yaml)
 
-Environment variables
+## Environment variables
 - PORT — server listens on process.env.PORT (default 5173)
 - NODE_ENV — production recommended for builds
+- OPENFIGI_API_KEY — optional. When set, `server.mjs` attaches it as the
+  `X-OPENFIGI-APIKEY` header on proxied requests, so the key stays server-side
+  and is never part of the browser bundle. It raises the mapping limit from 25
+  requests/minute to 25 per 6 seconds and the search limit from 5 to 20 per
+  minute (https://www.openfigi.com/api/documentation#rate-limits). Without it the
+  API still works at the unauthenticated limit, and the proxy returns the
+  provider's `ratelimit-limit` / `ratelimit-remaining` headers either way.
 
 Ports
 - Default application port: 5173 (used in local/dev Docker and server default)

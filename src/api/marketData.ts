@@ -62,6 +62,10 @@ async function mapIsinWithOpenFigi(isin: string): Promise<OpenFigiMapping> {
     body: JSON.stringify([{ idType: 'ID_ISIN', idValue: isin }]),
   })
 
+  if (response.status === 429) {
+    throw new Error('OpenFIGI rate limit reached. Wait a few seconds and try again — an OpenFIGI API key raises the limit.')
+  }
+
   if (!response.ok) {
     throw new Error(`OpenFIGI lookup failed (${response.status})`)
   }
@@ -206,6 +210,10 @@ async function searchOpenFigi(query: string, exchCode?: string): Promise<OpenFig
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+
+  if (response.status === 429) {
+    throw new Error('OpenFIGI rate limit reached. Wait a few seconds and try again — an OpenFIGI API key raises the limit.')
+  }
 
   if (!response.ok) {
     throw new Error(`OpenFIGI search failed (${response.status})`)

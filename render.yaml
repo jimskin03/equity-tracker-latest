@@ -13,3 +13,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Optional. A free OpenFIGI API key raises the mapping limit from 25
+      # requests/minute to 25 per 6 seconds, and the search limit from 5 to 20
+      # per minute. Sign up at https://www.openfigi.com/user/signup and set the
+      # value in the Render dashboard; the proxy attaches it server-side.
+      - key: OPENFIGI_API_KEY
+        sync: false

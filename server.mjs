@@ -11,6 +11,11 @@ const port = Number(process.env.PORT) || 5173
 const distDir = path.join(__dirname, 'dist')
 
 // OpenFIGI ISIN → security mapping proxy
+// The API key, when configured, is attached here rather than in the browser
+// bundle: one server-side key covers every user and never ships to a client.
+// Without it the API still works at the lower unauthenticated rate limit.
+const openFigiApiKey = process.env.OPENFIGI_API_KEY
+
 app.use(
   '/api/openfigi',
   createProxyMiddleware({
@@ -22,6 +27,19 @@ app.use(
         // Ensure JSON content-type for mapping POSTs
         if (!proxyReq.getHeader('content-type')) {
           proxyReq.setHeader('content-type', 'application/json')
+        }
+        if (openFigiApiKey) {
+          proxyReq.setHeader('X-OPENFIGI-APIKEY', openFigiApiKey)
+        }
+      },
+      proxyRes(proxyRes, _req, res) {
+        // Surface the provider's own rate-limit state so a caller can back off
+        // instead of guessing.
+        for (const header of ['ratelimit-limit', 'ratelimit-remaining']) {
+          if (proxyRes.headers[header]) res.setHeader(header, proxyRes.headers[header])
+        }
+        if (!proxyRes.headers['ratelimit-remaining'] && !openFigiApiKey) {
+          res.setHeader('x-openfigi-authenticated', 'false')
         }
       },
       error(err, _req, res) {
