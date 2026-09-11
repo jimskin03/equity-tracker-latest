@@ -7,6 +7,148 @@
   gap: 1.25rem;
 }
 
+.signed-out-shell {
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.workspace-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+
+.workspace-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  background: rgba(2, 6, 23, 0.92);
+  border-right: 1px solid rgba(148, 163, 184, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.brand-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem;
+  color: #f8fafc;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brand-button > span:last-child { display: flex; flex-direction: column; }
+.brand-button small { color: #7dd3fc; }
+.brand-mark {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.28);
+}
+
+.workspace-sidebar nav { display: flex; flex-direction: column; gap: 0.35rem; }
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.72rem 0.8rem;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  text-align: left;
+}
+.nav-item:hover { color: #e2e8f0; background: rgba(30, 41, 59, 0.5); }
+.nav-item.active { color: #f8fafc; background: rgba(14, 165, 233, 0.13); border-color: rgba(56, 189, 248, 0.25); }
+.nav-icon { width: 1.25rem; text-align: center; color: #7dd3fc; font-size: 1.1rem; }
+
+.sidebar-account {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.sidebar-account > span { font-size: 0.75rem; }
+.sidebar-account > strong { overflow: hidden; text-overflow: ellipsis; font-size: 0.82rem; }
+
+.workspace-main {
+  min-width: 0;
+  width: min(1260px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.auth-error { margin-bottom: 1rem; }
+
+.dashboard-stack,
+.portfolio-stack { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.hero-card,
+.module-card,
+.module-frame-card {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 16px 45px rgba(2, 6, 23, 0.3);
+}
+.hero-card {
+  min-height: 220px;
+  padding: 2rem;
+  border-radius: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  background: radial-gradient(circle at 75% 20%, rgba(14, 165, 233, 0.26), transparent 32%), linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.88));
+}
+.hero-card h1 { margin: 0.25rem 0; font-size: clamp(2rem, 5vw, 3.4rem); letter-spacing: -0.05em; }
+.session-chip,
+.preserved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: 999px;
+  background: rgba(6, 78, 59, 0.28);
+  color: #a7f3d0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.session-dot { width: 0.48rem; height: 0.48rem; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12); }
+
+.module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.module-card { min-height: 275px; padding: 1.6rem; border-radius: 20px; display: flex; flex-direction: column; align-items: flex-start; }
+.module-card h2 { margin: 0.25rem 0 0.55rem; font-size: 1.65rem; }
+.module-card p:not(.eyebrow) { max-width: 32rem; color: #cbd5e1; line-height: 1.65; }
+.module-card .btn { margin-top: auto; }
+.ledger-module-card { background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.18), transparent 35%), rgba(15, 23, 42, 0.8); }
+.portfolio-module-card { background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.2), transparent 35%), rgba(15, 23, 42, 0.8); }
+
+.architecture-note { display: flex; flex-direction: column; gap: 0.35rem; }
+.auth-card { max-width: 760px; margin: auto; display: grid; grid-template-columns: 1.25fr 1fr; gap: 2rem; padding: 2rem; }
+.auth-card h1 { font-size: 2rem; line-height: 1.15; letter-spacing: -0.035em; }
+.auth-form { display: flex; flex-direction: column; gap: 0.9rem; justify-content: center; }
+.auth-state { text-align: center; }
+
+.module-frame-card { overflow: hidden; border-radius: 22px; background: #020617; }
+.module-intro { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.35rem 1.5rem; background: rgba(15, 23, 42, 0.94); }
+.module-intro h1 { margin: 0.15rem 0 0.25rem; }
+.module-intro p { margin: 0; }
+.ledger-frame { display: block; width: 100%; height: calc(100vh - 170px); min-height: 720px; border: 0; background: #07101f; }
+
 .app-header {
   display: flex;
   justify-content: space-between;
@@ -348,6 +490,14 @@ code {
 }
 
 @media (max-width: 960px) {
+  .workspace-shell { grid-template-columns: 1fr; }
+  .workspace-sidebar { position: sticky; z-index: 10; height: auto; flex-direction: row; align-items: center; padding: 0.7rem 1rem; border-right: 0; border-bottom: 1px solid rgba(148, 163, 184, 0.14); }
+  .workspace-sidebar nav { flex-direction: row; margin-left: auto; }
+  .sidebar-account { margin: 0; }
+  .sidebar-account > span, .sidebar-account > strong { display: none; }
+  .workspace-main { width: min(100% - 1.5rem, 1260px); padding-top: 1rem; }
+  .module-intro { align-items: flex-start; }
+
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -362,6 +512,16 @@ code {
 }
 
 @media (max-width: 640px) {
+  .brand-button > span:last-child { display: none; }
+  .workspace-sidebar { gap: 0.45rem; }
+  .workspace-sidebar nav { flex: 1; justify-content: center; }
+  .nav-item { width: auto; padding: 0.6rem; font-size: 0; gap: 0; }
+  .nav-icon { font-size: 1.15rem; }
+  .sidebar-account .btn { padding: 0.5rem; }
+  .module-grid, .auth-card { grid-template-columns: 1fr; }
+  .hero-card, .module-intro { flex-direction: column; align-items: flex-start; }
+  .ledger-frame { height: calc(100vh - 210px); min-height: 620px; }
+
   .app-shell {
     width: min(100% - 1rem, 1180px);
     padding-top: 1rem;
