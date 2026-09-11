@@ -220,7 +220,13 @@ async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult
   }
 
   const upper = term.toUpperCase()
+  const composite = (item: OpenFigiMapping) => Boolean(item.figi && item.figi === item.compositeFIGI)
+  // Prefer the primary listing: OpenFIGI returns one row per exchange, and the
+  // row whose FIGI equals its composite FIGI is the composite/primary one. An
+  // exact ticker match alone can otherwise land on a foreign cross-listing.
   const preferred =
+    matches.find((item) => item.ticker?.toUpperCase() === upper && composite(item)) ||
+    matches.find(composite) ||
     matches.find((item) => item.ticker?.toUpperCase() === upper) ||
     matches.find((item) => item.marketSector === 'Equity') ||
     matches[0]
