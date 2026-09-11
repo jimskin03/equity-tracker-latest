@@ -197,11 +197,14 @@ interface OpenFigiSearchResponse {
 // returns an ISIN — only FIGIs — so a result resolved this way is identified by
 // figi. Rate limits are tighter than /v3/mapping (a handful of calls a minute
 // without an API key), which is why the ISIN path stays the precise one.
-async function searchOpenFigi(query: string): Promise<OpenFigiMapping[]> {
+async function searchOpenFigi(query: string, exchCode?: string): Promise<OpenFigiMapping[]> {
+  const body: Record<string, string> = { query }
+  if (exchCode) body.exchCode = exchCode
+
   const response = await fetch('/api/openfigi/v3/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
@@ -214,7 +217,23 @@ async function searchOpenFigi(query: string): Promise<OpenFigiMapping[]> {
 }
 
 async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult> {
-  const matches = (await searchOpenFigi(term)).filter((item) => item.ticker && item.figi)
+  const usable = (items: OpenFigiMapping[]) => items.filter((item) => item.ticker && item.figi)
+
+  // An unfiltered search for a company name returns a page flooded with foreign
+  // cross-listings (searching "microsoft" leads with Frankfurt rows), so a bare
+  // ticker or name is tried against the US listing first. An explicit exchange
+  // suffix such as PTX.AX or VOD.L means the caller knows which listing they
+  // want, and falls straight through to the unfiltered search.
+  let matches: OpenFigiMapping[] = []
+  if (!term.includes('.')) {
+    try {
+      matches = usable(await searchOpenFigi(term, 'US'))
+    } catch {
+      matches = []
+    }
+  }
+  if (!matches.length) matches = usable(await searchOpenFigi(term))
+
   if (!matches.length) {
     throw new Error(`No security found for "${term}". Try a ticker like AAPL or the full company name.`)
   }
@@ -222,12 +241,11 @@ async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult
   const upper = term.toUpperCase()
   const composite = (item: OpenFigiMapping) => Boolean(item.figi && item.figi === item.compositeFIGI)
   // Prefer the primary listing: OpenFIGI returns one row per exchange, and the
-  // row whose FIGI equals its composite FIGI is the composite/primary one. An
-  // exact ticker match alone can otherwise land on a foreign cross-listing.
+  // row whose FIGI equals its composite FIGI is the composite/primary one.
   const preferred =
     matches.find((item) => item.ticker?.toUpperCase() === upper && composite(item)) ||
-    matches.find(composite) ||
     matches.find((item) => item.ticker?.toUpperCase() === upper) ||
+    matches.find(composite) ||
     matches.find((item) => item.marketSector === 'Equity') ||
     matches[0]
 
