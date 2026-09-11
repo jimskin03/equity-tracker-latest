@@ -52,3 +52,4 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
 })
 
 export const portfolioDb = supabase.schema('portfolio')
+export const referenceDb = supabase.schema('reference')

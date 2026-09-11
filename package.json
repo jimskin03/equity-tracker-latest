@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src server.mjs",
     "preview": "vite preview",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "sync:financedatabase": "node scripts/sync-financedatabase.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
