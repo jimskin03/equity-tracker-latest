@@ -18,7 +18,6 @@ function readableError(value: unknown, fallback: string): string {
 
 interface SecurityRow {
   id: string
-  instrument_id: string | null
   isin: string
   security_name: string
   ticker: string
@@ -63,11 +62,10 @@ async function ensurePortfolioAccount(userId: string): Promise<string> {
   return data.id as string
 }
 
-// Reference metadata from the FinanceDatabase instrument master. Only fields the
-// lookup actually resolved are sent, so a partial refresh (for example a
-// Yahoo-only price refresh) never blanks metadata that is already stored.
+// OpenFIGI metadata carried onto the security row. Only fields the lookup
+// actually resolved are sent, so a partial refresh (for example a Yahoo-only
+// price refresh) never blanks metadata that is already stored.
 const SECURITY_METADATA_COLUMNS = [
-  ['instrument_id', 'instrumentId'],
   ['asset_type', 'assetType'],
   ['sector', 'sector'],
   ['industry_group', 'industryGroup'],
@@ -78,11 +76,10 @@ const SECURITY_METADATA_COLUMNS = [
   ['figi', 'figi'],
   ['composite_figi', 'compositeFigi'],
   ['shareclass_figi', 'shareclassFigi'],
-  ['instrument_source', 'instrumentSource'],
 ] as const
 
 const SECURITY_SELECT =
-  'id, instrument_id, asset_type, sector, industry_group, industry, country, exchange_name, cusip, figi, composite_figi, shareclass_figi, instrument_source, isin, security_name, ticker, exchange_code, currency'
+  'id, asset_type, sector, industry_group, industry, country, exchange_name, cusip, figi, composite_figi, shareclass_figi, isin, security_name, ticker, exchange_code, currency'
 
 function securityMetadata(security: SecurityLookupResult, accountId: string, isin: string): Record<string, string> {
   const payload: Record<string, string> = { account_id: accountId, isin }
@@ -97,8 +94,7 @@ async function saveSecurity(
   accountId: string,
   security: SecurityLookupResult,
 ): Promise<SecurityRow> {
-  const key = security.instrumentId ? 'instrument_id' : 'isin'
-  const existing = await portfolioDb.from('securities').select('id').eq('account_id', accountId).eq(key, security.instrumentId || security.isin).maybeSingle()
+  const existing = await portfolioDb.from('securities').select('id').eq('account_id', accountId).eq('isin', security.isin).maybeSingle()
   if (existing.error) throw existing.error
   const payload = {
     ...securityMetadata(security, accountId, security.isin),
@@ -106,7 +102,6 @@ async function saveSecurity(
     ticker: security.ticker,
     exchange_code: security.exchangeCode || null,
     currency: security.currency || 'USD',
-    metadata_updated_at: new Date().toISOString(),
   }
   const { data, error } = existing.data
     ? await portfolioDb.from('securities').update(payload).eq('id', existing.data.id).select(SECURITY_SELECT).single()
@@ -141,7 +136,7 @@ async function fetchHoldings(accountId: string): Promise<Holding[]> {
   const [securityResult, holdingResult, priceResult] = await Promise.all([
     portfolioDb
       .from('securities')
-      .select('id, instrument_id, isin, security_name, ticker, exchange_code, currency')
+      .select('id, isin, security_name, ticker, exchange_code, currency')
       .eq('account_id', accountId),
     portfolioDb
       .from('holdings')
@@ -173,7 +168,6 @@ async function fetchHoldings(accountId: string): Promise<Holding[]> {
     const costPrice = Number(holding.average_cost)
     return [{
       id: holding.id,
-      instrumentId: security.instrument_id || undefined,
       isin: security.isin,
       securityName: security.security_name,
       ticker: security.ticker,
@@ -272,7 +266,7 @@ export function useHoldings(userId: string) {
     clearMessages(); setIsLoading(true)
     try {
       const lookup = await lookupSecurity(isin)
-      if (holdings.some((holding) => (lookup.instrumentId && holding.instrumentId === lookup.instrumentId) || (!lookup.instrumentId && holding.isin === lookup.isin && holding.ticker === lookup.ticker))) throw new Error(`This listing is already held. Edit the existing row instead.`)
+      if (holdings.some((holding) => holding.isin === lookup.isin && holding.ticker === lookup.ticker)) throw new Error(`This listing is already held. Edit the existing row instead.`)
       const security = await saveSecurity(accountId, lookup)
       const { error: saveError } = await portfolioDb.from('holdings').insert({ account_id: accountId, security_id: security.id, quantity, average_cost: costPrice })
       if (saveError) throw saveError
@@ -296,7 +290,7 @@ export function useHoldings(userId: string) {
       let securityId: string | undefined
       if (needsLookup) {
         const lookup = await lookupSecurity(nextIsin)
-        if (holdings.some((holding) => holding.id !== id && ((lookup.instrumentId && holding.instrumentId === lookup.instrumentId) || (!lookup.instrumentId && holding.isin === lookup.isin && holding.ticker === lookup.ticker)))) throw new Error('Another holding already uses this listing')
+        if (holdings.some((holding) => holding.id !== id && holding.isin === lookup.isin && holding.ticker === lookup.ticker)) throw new Error('Another holding already uses this listing')
         const security = await saveSecurity(accountId, lookup)
         securityId = security.id
         await savePrice(accountId, security.id, lookup.latestPrice, lookup.currency)
