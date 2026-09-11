@@ -16,7 +16,7 @@ auth.users.id
 
 ## Database order
 
-Apply migrations in filename order. The copied expense migrations preserve the existing ledger schema, backfill, reporting view, reference numbers, reversal rules, transfer integrity, and read-only rollback sources. Then apply `20260911120000_add_portfolio_schema.sql`.
+Apply migrations in filename order. The copied expense migrations preserve the existing ledger schema, backfill, reporting view, reference numbers, reversal rules, transfer integrity, and read-only rollback sources. Then apply `20260911120000_add_portfolio_schema.sql`, `20260911130000_add_reference_instrument_master.sql`, and `20260911140000_add_security_reference_metadata.sql`.
 
 No migration in this rollout drops a ledger, portfolio, public, or archive table. The expense retirement migration only revokes writes from superseded tables and documents the re-grant rollback.
 
@@ -24,8 +24,12 @@ After applying the migrations:
 
 1. Run `supabase/validation/reconcile_transactions.sql`; expect no `FAIL` rows.
 2. Run `supabase/validation/validate_portfolio_schema.sql`; expect every row to report `PASS`.
-3. Confirm `expense` and `portfolio` are exposed through the Supabase API. The portfolio migration adds `portfolio` to PostgREST's existing schema list and reloads its configuration.
+3. Confirm `expense`, `portfolio`, and `reference` are exposed through the Supabase API. The portfolio migration adds `portfolio` to PostgREST's existing schema list, and the reference migration adds `reference`; both reload the configuration.
 4. Confirm every deployed finance origin is listed in Supabase Auth redirect URLs.
+
+## Instrument master
+
+`20260911130000_add_reference_instrument_master.sql` creates the `reference` schema and links `portfolio.securities.instrument_id` to it; `20260911140000_add_security_reference_metadata.sql` denormalises the FinanceDatabase field set onto `portfolio.securities`. Both are additive and re-runnable. Until the catalogue is seeded, security lookups fall back to OpenFIGI and the metadata columns stay null; see `docs/FINANCEDATABASE.md` for the seeding paths.
 
 ## Browser holding cutover
 
@@ -57,7 +61,7 @@ Environment overrides are available as `VITE_SUPABASE_URL` and `VITE_SUPABASE_PU
 
 The Blueprint declares `expensetracker.cryptgregresearch.org` for the existing Render web service. In Render, add and verify that custom domain, then create the DNS provider's CNAME record `expensetracker -> equity-tracker-latest.onrender.com`. Keep the Render subdomain enabled until the custom domain is verified and the localStorage migration window is complete; disabling it causes the old URL to return 404 rather than redirect.
 
-The portfolio migration retains the deployed `public`, `graphql_public`, and `expense` API schemas, adds `portfolio`, and reloads PostgREST. The currently deployed API has not received that migration, so Portfolio cannot save holdings until it is applied.
+The portfolio migration retains the deployed `public`, `graphql_public`, and `expense` API schemas, adds `portfolio`, and reloads PostgREST. The reference migration adds `reference` the same way. Both have been applied to the live project; keep them applied before deploying any client that reads `portfolio.securities.instrument_id` or the denormalised FinanceDatabase columns.
 
 ## Rollback
 

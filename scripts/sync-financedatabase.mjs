@@ -36,7 +36,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const payload = rows.map((row) => ({
       asset_type: row.asset_type || 'equity', symbol: row.symbol, name: row.name,
       currency_code: row.currency || row.currency_code, exchange_code: row.exchange || row.exchange_code,
-      exchange_name: row.exchange_name, country: row.country, sector: row.sector,
+      exchange_name: row.exchange_name || row.market, country: row.country, sector: row.sector,
       industry_group: row.industry_group, industry: row.industry, isin: row.isin,
       cusip: row.cusip, figi: row.figi, composite_figi: row.composite_figi,
       shareclass_figi: row.shareclass_figi, source: 'financedatabase',

@@ -212,9 +212,19 @@ function str(value: unknown): string | undefined {
 
 async function lookupFromReference(query: string): Promise<SecurityLookupResult | null> {
   let rows: InstrumentSearchResult[]
-  try { rows = await searchInstruments(query, 1) } catch { return null }
-  const row = rows[0]
-  if (!row?.isin) return null
+  try { rows = await searchInstruments(query, 15) } catch { return null }
+  // The catalogue lists one row per exchange and only ~27% of listings carry an
+  // ISIN, so prefer an exact symbol/ISIN match that has one instead of blindly
+  // taking the first name match (which may be unrelated, or ISIN-less).
+  const term = query.trim().toUpperCase()
+  const withIsin = rows.filter(
+    (candidate): candidate is InstrumentSearchResult & { isin: string } => Boolean(candidate.isin),
+  )
+  if (!withIsin.length) return null
+  const row =
+    withIsin.find((candidate) => candidate.symbol.toUpperCase() === term) ||
+    withIsin.find((candidate) => candidate.isin?.toUpperCase() === term) ||
+    withIsin[0]
   const quote = await resolveLatestPrice({ name: row.name, ticker: row.symbol, exchCode: row.exchangeCode || undefined })
   return {
     instrumentId: row.id,
