@@ -1,208 +1,315 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Holding } from '../types'
 import { lookupSecurityByIsin, refreshLatestPrice } from '../api/marketData'
+import { portfolioDb } from '../lib/supabase'
+import type { Holding, SecurityLookupResult } from '../types'
 
-const STORAGE_KEY = 'equity-tracker-holdings-v1'
+const LEGACY_STORAGE_KEY = 'equity-tracker-holdings-v1'
 
-function loadHoldings(): Holding[] {
+interface SecurityRow {
+  id: string
+  isin: string
+  security_name: string
+  ticker: string
+  exchange_code: string | null
+  currency: string
+}
+
+interface HoldingRow {
+  id: string
+  security_id: string
+  quantity: number | string
+  average_cost: number | string
+  updated_at: string
+}
+
+interface PriceRow {
+  security_id: string
+  price: number | string
+  currency: string
+  as_of: string
+}
+
+function migrationMarker(userId: string): string {
+  return `${LEGACY_STORAGE_KEY}:migrated:${userId}`
+}
+
+function readLegacyHoldings(): Holding[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as Holding[]
+    const parsed = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || '[]') as Holding[]
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
 }
 
-function persistHoldings(holdings: Holding[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings))
+async function ensurePortfolioAccount(userId: string): Promise<string> {
+  const { data, error } = await portfolioDb
+    .from('accounts')
+    .upsert({ user_id: userId }, { onConflict: 'user_id' })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
 }
 
-function createId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
+async function saveSecurity(
+  accountId: string,
+  security: SecurityLookupResult,
+): Promise<SecurityRow> {
+  const { data, error } = await portfolioDb
+    .from('securities')
+    .upsert(
+      {
+        account_id: accountId,
+        isin: security.isin,
+        security_name: security.securityName,
+        ticker: security.ticker,
+        exchange_code: security.exchangeCode || null,
+        currency: security.currency || 'USD',
+      },
+      { onConflict: 'account_id,isin' },
+    )
+    .select('id, isin, security_name, ticker, exchange_code, currency')
+    .single()
+  if (error) throw error
+  return data as SecurityRow
+}
+
+async function savePrice(
+  accountId: string,
+  securityId: string,
+  price: number,
+  currency: string,
+  asOf = new Date().toISOString(),
+): Promise<void> {
+  if (!(price > 0)) return
+  const { error } = await portfolioDb.from('prices').upsert(
+    {
+      account_id: accountId,
+      security_id: securityId,
+      price,
+      currency: currency || 'USD',
+      as_of: asOf,
+      source: 'yahoo',
+    },
+    { onConflict: 'account_id,security_id,source,as_of' },
+  )
+  if (error) throw error
+}
+
+async function fetchHoldings(accountId: string): Promise<Holding[]> {
+  const [securityResult, holdingResult, priceResult] = await Promise.all([
+    portfolioDb
+      .from('securities')
+      .select('id, isin, security_name, ticker, exchange_code, currency')
+      .eq('account_id', accountId),
+    portfolioDb
+      .from('holdings')
+      .select('id, security_id, quantity, average_cost, updated_at')
+      .eq('account_id', accountId)
+      .order('updated_at', { ascending: false }),
+    portfolioDb
+      .from('prices')
+      .select('security_id, price, currency, as_of')
+      .eq('account_id', accountId)
+      .order('as_of', { ascending: false })
+      .limit(2000),
+  ])
+  const error = securityResult.error || holdingResult.error || priceResult.error
+  if (error) throw error
+
+  const securities = new Map(
+    ((securityResult.data || []) as SecurityRow[]).map((security) => [security.id, security]),
+  )
+  const latestPrices = new Map<string, PriceRow>()
+  for (const price of (priceResult.data || []) as PriceRow[]) {
+    if (!latestPrices.has(price.security_id)) latestPrices.set(price.security_id, price)
   }
-  return `h_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+
+  return ((holdingResult.data || []) as HoldingRow[]).flatMap((holding) => {
+    const security = securities.get(holding.security_id)
+    if (!security) return []
+    const quote = latestPrices.get(holding.security_id)
+    const costPrice = Number(holding.average_cost)
+    return [{
+      id: holding.id,
+      isin: security.isin,
+      securityName: security.security_name,
+      ticker: security.ticker,
+      holdings: Number(holding.quantity),
+      costPrice,
+      latestPrice: quote ? Number(quote.price) : costPrice,
+      currency: quote?.currency || security.currency,
+      updatedAt: quote?.as_of || holding.updated_at,
+    }]
+  })
 }
 
-export function useHoldings() {
-  const [holdings, setHoldings] = useState<Holding[]>(() => loadHoldings())
-  const [isLoading, setIsLoading] = useState(false)
+async function importLegacyHoldings(accountId: string, userId: string): Promise<number> {
+  if (localStorage.getItem(migrationMarker(userId))) return 0
+  const legacy = readLegacyHoldings()
+  if (!legacy.length) return 0
+
+  for (const holding of legacy) {
+    const security = await saveSecurity(accountId, {
+      isin: holding.isin.trim().toUpperCase(),
+      securityName: holding.securityName,
+      ticker: holding.ticker,
+      latestPrice: holding.latestPrice,
+      currency: holding.currency,
+    })
+    const { error } = await portfolioDb.from('holdings').upsert(
+      {
+        account_id: accountId,
+        security_id: security.id,
+        quantity: holding.holdings,
+        average_cost: holding.costPrice,
+      },
+      { onConflict: 'account_id,security_id' },
+    )
+    if (error) throw error
+    await savePrice(
+      accountId,
+      security.id,
+      holding.latestPrice,
+      holding.currency,
+      holding.updatedAt || new Date().toISOString(),
+    )
+  }
+
+  // Retain the original payload as a rollback copy; the marker only prevents
+  // repeated imports after the database cutover succeeds.
+  localStorage.setItem(migrationMarker(userId), new Date().toISOString())
+  return legacy.length
+}
+
+export function useHoldings(userId: string) {
+  const [accountId, setAccountId] = useState<string | null>(null)
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
-  useEffect(() => {
-    persistHoldings(holdings)
-  }, [holdings])
+  const clearMessages = useCallback(() => { setError(null); setStatus(null) }, [])
 
-  const clearMessages = useCallback(() => {
-    setError(null)
-    setStatus(null)
+  const reload = useCallback(async (id: string) => {
+    const rows = await fetchHoldings(id)
+    setHoldings(rows)
+    return rows
   }, [])
 
-  const addHolding = useCallback(
-    async (isin: string, quantity: number, costPrice: number) => {
-      clearMessages()
+  useEffect(() => {
+    let active = true
+    const boot = async () => {
       setIsLoading(true)
-
+      setError(null)
       try {
-        const lookup = await lookupSecurityByIsin(isin)
-        const existing = holdings.find((h) => h.isin === lookup.isin)
-
-        if (existing) {
-          throw new Error(
-            `A holding for ${lookup.isin} already exists. Edit the existing row instead.`,
-          )
+        const id = await ensurePortfolioAccount(userId)
+        let rows = await fetchHoldings(id)
+        let imported = 0
+        if (rows.length === 0) {
+          imported = await importLegacyHoldings(id, userId)
+          if (imported) rows = await fetchHoldings(id)
         }
-
-        const next: Holding = {
-          id: createId(),
-          isin: lookup.isin,
-          securityName: lookup.securityName,
-          ticker: lookup.ticker,
-          holdings: quantity,
-          costPrice,
-          latestPrice: lookup.latestPrice || costPrice,
-          currency: lookup.currency,
-          updatedAt: new Date().toISOString(),
-        }
-
-        setHoldings((prev) => [next, ...prev])
-        setStatus(
-          lookup.latestPrice > 0
-            ? `Saved ${lookup.securityName} (${lookup.ticker})`
-            : `Saved ${lookup.securityName}. Latest market price unavailable — using cost price.`,
-        )
-        return next
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to save holding'
-        setError(message)
-        throw err
+        if (!active) return
+        setAccountId(id)
+        setHoldings(rows)
+        if (imported) setStatus(`Imported ${imported} browser holding${imported === 1 ? '' : 's'} into Supabase.`)
+      } catch (bootError) {
+        if (!active) return
+        setError(bootError instanceof Error ? bootError.message : 'Could not load portfolio')
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
-    },
-    [clearMessages, holdings],
-  )
+    }
+    void boot()
+    return () => { active = false }
+  }, [userId])
 
-  const updateHolding = useCallback(
-    async (
-      id: string,
-      updates: { isin?: string; holdings: number; costPrice: number },
-      options?: { refreshMarketData?: boolean },
-    ) => {
-      clearMessages()
-      setIsLoading(true)
+  const addHolding = useCallback(async (isin: string, quantity: number, costPrice: number) => {
+    if (!accountId) throw new Error('Portfolio account is not ready')
+    clearMessages(); setIsLoading(true)
+    try {
+      const lookup = await lookupSecurityByIsin(isin)
+      if (holdings.some((holding) => holding.isin === lookup.isin)) throw new Error(`A holding for ${lookup.isin} already exists. Edit the existing row instead.`)
+      const security = await saveSecurity(accountId, lookup)
+      const { error: saveError } = await portfolioDb.from('holdings').insert({ account_id: accountId, security_id: security.id, quantity, average_cost: costPrice })
+      if (saveError) throw saveError
+      await savePrice(accountId, security.id, lookup.latestPrice, lookup.currency)
+      await reload(accountId)
+      setStatus(lookup.latestPrice > 0 ? `Saved ${lookup.securityName} (${lookup.ticker})` : `Saved ${lookup.securityName}. Latest market price unavailable — using cost price.`)
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : 'Failed to save holding'
+      setError(message); throw saveError
+    } finally { setIsLoading(false) }
+  }, [accountId, clearMessages, holdings, reload])
 
-      try {
-        const current = holdings.find((h) => h.id === id)
-        if (!current) {
-          throw new Error('Holding not found')
-        }
-
-        let next: Holding = {
-          ...current,
-          holdings: updates.holdings,
-          costPrice: updates.costPrice,
-          updatedAt: new Date().toISOString(),
-        }
-
-        const isinChanged =
-          updates.isin && updates.isin.trim().toUpperCase() !== current.isin
-
-        if (isinChanged || options?.refreshMarketData) {
-          const lookup = await lookupSecurityByIsin(updates.isin || current.isin)
-
-          // Prevent duplicate ISIN on another row
-          const clash = holdings.find((h) => h.id !== id && h.isin === lookup.isin)
-          if (clash) {
-            throw new Error(`Another holding already uses ISIN ${lookup.isin}`)
-          }
-
-          next = {
-            ...next,
-            isin: lookup.isin,
-            securityName: lookup.securityName,
-            ticker: lookup.ticker,
-            latestPrice: lookup.latestPrice || next.costPrice,
-            currency: lookup.currency,
-          }
-        }
-
-        setHoldings((prev) => prev.map((h) => (h.id === id ? next : h)))
-        setStatus(`Updated ${next.securityName}`)
-        return next
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update holding'
-        setError(message)
-        throw err
-      } finally {
-        setIsLoading(false)
+  const updateHolding = useCallback(async (id: string, updates: { isin?: string; holdings: number; costPrice: number }, options?: { refreshMarketData?: boolean }) => {
+    if (!accountId) throw new Error('Portfolio account is not ready')
+    clearMessages(); setIsLoading(true)
+    try {
+      const current = holdings.find((holding) => holding.id === id)
+      if (!current) throw new Error('Holding not found')
+      const nextIsin = (updates.isin || current.isin).trim().toUpperCase()
+      const needsLookup = nextIsin !== current.isin || options?.refreshMarketData
+      let securityId: string | undefined
+      if (needsLookup) {
+        if (holdings.some((holding) => holding.id !== id && holding.isin === nextIsin)) throw new Error(`Another holding already uses ISIN ${nextIsin}`)
+        const lookup = await lookupSecurityByIsin(nextIsin)
+        const security = await saveSecurity(accountId, lookup)
+        securityId = security.id
+        await savePrice(accountId, security.id, lookup.latestPrice, lookup.currency)
       }
-    },
-    [clearMessages, holdings],
-  )
+      const values: Record<string, string | number> = { quantity: updates.holdings, average_cost: updates.costPrice }
+      if (securityId) values.security_id = securityId
+      const { error: updateError } = await portfolioDb.from('holdings').update(values).eq('id', id).eq('account_id', accountId)
+      if (updateError) throw updateError
+      const rows = await reload(accountId)
+      setStatus(`Updated ${rows.find((holding) => holding.id === id)?.securityName || current.securityName}`)
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : 'Failed to update holding'
+      setError(message); throw updateError
+    } finally { setIsLoading(false) }
+  }, [accountId, clearMessages, holdings, reload])
 
-  const deleteHolding = useCallback(
-    (id: string) => {
-      clearMessages()
-      setHoldings((prev) => prev.filter((h) => h.id !== id))
-      setStatus('Holding deleted')
-    },
-    [clearMessages],
-  )
+  const deleteHolding = useCallback(async (id: string) => {
+    if (!accountId) return
+    clearMessages(); setIsLoading(true)
+    try {
+      const { error: deleteError } = await portfolioDb
+        .from('holdings')
+        .delete()
+        .eq('id', id)
+        .eq('account_id', accountId)
+      if (deleteError) throw deleteError
+      await reload(accountId); setStatus('Holding deleted')
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete holding')
+    } finally { setIsLoading(false) }
+  }, [accountId, clearMessages, reload])
 
   const refreshAllPrices = useCallback(async () => {
-    if (holdings.length === 0) return
-
-    clearMessages()
-    setIsLoading(true)
-
+    if (!accountId || holdings.length === 0) return
+    clearMessages(); setIsLoading(true)
     try {
-      const refreshed = await Promise.all(
-        holdings.map(async (holding) => {
-          const quote = await refreshLatestPrice(holding.ticker)
-          if (!quote) return holding
-
-          return {
-            ...holding,
-            latestPrice: quote.latestPrice,
-            currency: quote.currency || holding.currency,
-            updatedAt: new Date().toISOString(),
-          }
-        }),
-      )
-
-      setHoldings(refreshed)
-      setStatus('Latest prices refreshed')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to refresh prices'
-      setError(message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [clearMessages, holdings])
+      await Promise.all(holdings.map(async (holding) => {
+        const quote = await refreshLatestPrice(holding.ticker)
+        if (!quote) return
+        const security = await saveSecurity(accountId, { isin: holding.isin, securityName: holding.securityName, ticker: holding.ticker, latestPrice: quote.latestPrice, currency: quote.currency })
+        await savePrice(accountId, security.id, quote.latestPrice, quote.currency)
+      }))
+      await reload(accountId); setStatus('Latest prices refreshed')
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : 'Failed to refresh prices')
+    } finally { setIsLoading(false) }
+  }, [accountId, clearMessages, holdings, reload])
 
   const summary = useMemo(() => {
-    const totalCost = holdings.reduce((sum, h) => sum + h.holdings * h.costPrice, 0)
-    const totalMarket = holdings.reduce((sum, h) => sum + h.holdings * h.latestPrice, 0)
+    const totalCost = holdings.reduce((sum, holding) => sum + holding.holdings * holding.costPrice, 0)
+    const totalMarket = holdings.reduce((sum, holding) => sum + holding.holdings * holding.latestPrice, 0)
     const pnl = totalMarket - totalCost
-    const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0
-
-    return { totalCost, totalMarket, pnl, pnlPct, count: holdings.length }
+    return { totalCost, totalMarket, pnl, pnlPct: totalCost > 0 ? (pnl / totalCost) * 100 : 0, count: holdings.length }
   }, [holdings])
 
-  return {
-    holdings,
-    isLoading,
-    error,
-    status,
-    summary,
-    addHolding,
-    updateHolding,
-    deleteHolding,
-    refreshAllPrices,
-    clearMessages,
-  }
+  return { holdings, isLoading, error, status, summary, addHolding, updateHolding, deleteHolding, refreshAllPrices, clearMessages }
 }

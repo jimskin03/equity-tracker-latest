@@ -1,125 +1,64 @@
-import { useState } from 'react'
-import { HoldingForm } from './components/HoldingForm'
-import { HoldingsTable } from './components/HoldingsTable'
-import { PortfolioSummary } from './components/PortfolioSummary'
-import { useHoldings } from './hooks/useHoldings'
-import type { Holding, HoldingFormData } from './types'
+import { useEffect, useState } from 'react'
+import { AuthGate } from './components/AuthGate'
+import { Dashboard } from './components/Dashboard'
+import { LedgerModule } from './components/LedgerModule'
+import { PortfolioModule } from './components/PortfolioModule'
+import { useAuth } from './hooks/useAuth'
 import './App.css'
 
+type View = 'dashboard' | 'ledger' | 'portfolio'
+
+function viewFromHash(): View {
+  const value = window.location.hash.replace(/^#\/?/, '')
+  return value === 'ledger' || value === 'portfolio' ? value : 'dashboard'
+}
+
 function App() {
-  const {
-    holdings,
-    isLoading,
-    error,
-    status,
-    summary,
-    addHolding,
-    updateHolding,
-    deleteHolding,
-    refreshAllPrices,
-    clearMessages,
-  } = useHoldings()
+  const { session, isLoading, error, signIn, signOut } = useAuth()
+  const [view, setView] = useState<View>(viewFromHash)
 
-  const [editing, setEditing] = useState<Holding | null>(null)
+  useEffect(() => {
+    const onHashChange = () => setView(viewFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
-  const handleCreate = async (data: HoldingFormData) => {
-    await addHolding(data.isin, Number(data.holdings), Number(data.costPrice))
+  const navigate = (next: View) => {
+    window.location.hash = next === 'dashboard' ? '' : `/${next}`
+    setView(next)
   }
 
-  const handleUpdate = async (data: HoldingFormData) => {
-    if (!editing) return
-
-    await updateHolding(
-      editing.id,
-      {
-        isin: data.isin,
-        holdings: Number(data.holdings),
-        costPrice: Number(data.costPrice),
-      },
-      { refreshMarketData: data.isin.trim().toUpperCase() !== editing.isin },
-    )
-
-    setEditing(null)
-  }
-
-  const handleRefreshRow = async (holding: Holding) => {
-    await updateHolding(
-      holding.id,
-      {
-        isin: holding.isin,
-        holdings: holding.holdings,
-        costPrice: holding.costPrice,
-      },
-      { refreshMarketData: true },
-    )
+  if (!session) {
+    return <main className="app-shell signed-out-shell"><AuthGate isLoading={isLoading} error={error} onSignIn={signIn} /></main>
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <p className="eyebrow">Portfolio</p>
-          <h1>Equity Tracker</h1>
-          <p className="muted header-copy">
-            Track holdings by ISIN. Security names come from OpenFIGI; latest prices from Yahoo
-            Finance. Data is saved in your browser.
-          </p>
+    <div className="workspace-shell">
+      <aside className="workspace-sidebar">
+        <button className="brand-button" type="button" onClick={() => navigate('dashboard')}>
+          <span className="brand-mark">CG</span>
+          <span><strong>CryptGreg</strong><small>Finance</small></span>
+        </button>
+        <nav aria-label="Finance modules">
+          {(['dashboard', 'ledger', 'portfolio'] as const).map((item) => (
+            <button key={item} type="button" className={view === item ? 'nav-item active' : 'nav-item'} onClick={() => navigate(item)}>
+              <span className="nav-icon">{item === 'dashboard' ? '⌂' : item === 'ledger' ? '≋' : '↗'}</span>
+              {item[0].toUpperCase() + item.slice(1)}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-account">
+          <span className="muted">Signed in</span>
+          <strong title={session.user.email}>{session.user.email || 'CryptGreg user'}</strong>
+          <button className="btn small ghost" type="button" onClick={() => void signOut()}>Sign out</button>
         </div>
-        <div className="header-badge">
-          <span>Free APIs</span>
-          <strong>OpenFIGI + Yahoo</strong>
-        </div>
-      </header>
-
-      {(error || status) && (
-        <div className={`banner ${error ? 'error' : 'success'}`} role="status">
-          <span>{error || status}</span>
-          <button type="button" className="banner-close" onClick={clearMessages} aria-label="Dismiss">
-            ×
-          </button>
-        </div>
-      )}
-
-      <PortfolioSummary
-        count={summary.count}
-        totalCost={summary.totalCost}
-        totalMarket={summary.totalMarket}
-        pnl={summary.pnl}
-        pnlPct={summary.pnlPct}
-        onRefreshAll={refreshAllPrices}
-        isLoading={isLoading}
-      />
-
-      {editing ? (
-        <HoldingForm
-          mode="edit"
-          initial={editing}
-          isLoading={isLoading}
-          onSubmit={handleUpdate}
-          onCancel={() => setEditing(null)}
-        />
-      ) : (
-        <HoldingForm mode="create" isLoading={isLoading} onSubmit={handleCreate} />
-      )}
-
-      <HoldingsTable
-        holdings={holdings}
-        editingId={editing?.id ?? null}
-        onEdit={setEditing}
-        onDelete={deleteHolding}
-        onRefreshRow={handleRefreshRow}
-        isLoading={isLoading}
-      />
-
-      <footer className="app-footer muted">
-        <p>
-          ISIN mapping via{' '}
-          <a href="https://www.openfigi.com/api" target="_blank" rel="noreferrer">
-            OpenFIGI
-          </a>
-          . Market prices via Yahoo Finance chart API (no key). Records persist in localStorage.
-        </p>
-      </footer>
+      </aside>
+      <main className="workspace-main">
+        {error && <div className="banner error auth-error">{error}</div>}
+        {view === 'dashboard' && <Dashboard email={session.user.email || 'CryptGreg user'} onNavigate={(next) => navigate(next)} />}
+        {view === 'ledger' && <LedgerModule userId={session.user.id} />}
+        {view === 'portfolio' && <PortfolioModule userId={session.user.id} />}
+      </main>
     </div>
   )
 }

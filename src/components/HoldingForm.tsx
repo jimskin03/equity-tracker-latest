@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Holding, HoldingFormData } from '../types'
 
@@ -23,20 +23,16 @@ export function HoldingForm({
   onSubmit,
   onCancel,
 }: HoldingFormProps) {
-  const [form, setForm] = useState<HoldingFormData>(emptyForm)
+  const [form, setForm] = useState<HoldingFormData>(() =>
+    mode === 'edit' && initial
+      ? {
+          isin: initial.isin,
+          holdings: String(initial.holdings),
+          costPrice: String(initial.costPrice),
+        }
+      : emptyForm,
+  )
   const [localError, setLocalError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (mode === 'edit' && initial) {
-      setForm({
-        isin: initial.isin,
-        holdings: String(initial.holdings),
-        costPrice: String(initial.costPrice),
-      })
-    } else if (mode === 'create') {
-      setForm(emptyForm)
-    }
-  }, [mode, initial])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
