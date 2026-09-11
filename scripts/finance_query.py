@@ -11,7 +11,8 @@ import mcp_sql  # noqa: E402
 
 
 def main() -> None:
-    query = sys.argv[1]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    query = args[0]
     read_only = "--write" not in sys.argv
     mcp_sql.connect()
     payload = mcp_sql.run_sql(query, read_only=read_only)

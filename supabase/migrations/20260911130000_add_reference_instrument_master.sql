@@ -80,5 +80,10 @@ create policy "Authenticated users can read currencies" on reference.currencies 
 drop policy if exists "Authenticated users can read instruments" on reference.instruments;
 create policy "Authenticated users can read instruments" on reference.instruments for select to authenticated using (true);
 grant select on reference.exchanges, reference.currencies, reference.instruments to authenticated;
+-- The unattended sync runs server-side with the service role; Supabase's
+-- service_role still needs schema USAGE and table privileges (BYPASSRLS only
+-- skips policies, not grants).
+grant usage on schema reference to service_role;
+grant select, insert, update, delete on reference.exchanges, reference.currencies, reference.instruments to service_role;
 alter role authenticator set pgrst.db_schemas = 'public, graphql_public, expense, portfolio, reference';
 notify pgrst, 'reload config';
