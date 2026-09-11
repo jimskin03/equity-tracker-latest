@@ -38,12 +38,12 @@ export function HoldingForm({
     event.preventDefault()
     setLocalError(null)
 
-    const isin = form.isin.trim().toUpperCase()
+    const isin = form.isin.trim()
     const holdings = Number(form.holdings)
     const costPrice = Number(form.costPrice)
 
     if (!isin) {
-      setLocalError('ISIN is required')
+      setLocalError('Search by ISIN, ticker, or company name')
       return
     }
 
@@ -78,22 +78,20 @@ export function HoldingForm({
         <div>
           <h2>{mode === 'create' ? 'Add holding' : 'Edit holding'}</h2>
           <p className="muted">
-            Enter ISIN, quantity, and your cost price. Security name and latest market price are
-            fetched automatically.
+            Search by ISIN, ticker, or company name. Security details come from the global instrument catalogue; latest prices come from Yahoo Finance.
           </p>
         </div>
       </div>
 
       <div className="form-grid">
         <label className="field">
-          <span>ISIN</span>
+          <span>Instrument</span>
           <input
             type="text"
             name="isin"
-            placeholder="e.g. US0378331005"
+            placeholder="e.g. US0378331005, AAPL, or Apple"
             value={form.isin}
             onChange={(e) => setForm((prev) => ({ ...prev, isin: e.target.value.toUpperCase() }))}
-            maxLength={12}
             autoComplete="off"
             disabled={isLoading}
             required

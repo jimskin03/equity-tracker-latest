@@ -1,4 +1,5 @@
-import type { SecurityLookupResult } from '../types'
+import { referenceDb } from '../lib/supabase'
+import type { InstrumentSearchResult, SecurityLookupResult } from '../types'
 
 interface OpenFigiMapping {
   name?: string
@@ -184,6 +185,36 @@ async function resolveLatestPrice(
     currency: 'USD',
     resolvedTicker: mapping.ticker || mapping.name || 'N/A',
   }
+}
+
+export async function searchInstruments(query: string, limit = 12): Promise<InstrumentSearchResult[]> {
+  const term = query.trim()
+  if (term.length < 2) return []
+  const pattern = `%${term.replace(/[%_]/g, '')}%`
+  const { data, error } = await referenceDb.from('instruments')
+    .select('id,symbol,name,isin,exchange_code,currency_code,country,sector')
+    .or(`symbol.ilike.${pattern},name.ilike.${pattern},isin.ilike.${pattern}`)
+    .order('name').limit(limit)
+  if (error) throw error
+  return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id), symbol: String(row.symbol), name: String(row.name),
+    isin: row.isin ? String(row.isin) : null, exchangeCode: row.exchange_code ? String(row.exchange_code) : null,
+    currency: row.currency_code ? String(row.currency_code) : null, country: row.country ? String(row.country) : null,
+    sector: row.sector ? String(row.sector) : null,
+  }))
+}
+
+async function lookupFromReference(query: string): Promise<SecurityLookupResult | null> {
+  let rows: InstrumentSearchResult[]
+  try { rows = await searchInstruments(query, 1) } catch { return null }
+  const row = rows[0]
+  if (!row?.isin) return null
+  const quote = await resolveLatestPrice({ name: row.name, ticker: row.symbol, exchCode: row.exchangeCode || undefined })
+  return { instrumentId: row.id, isin: row.isin.toUpperCase(), securityName: row.name, ticker: quote.resolvedTicker || row.symbol, exchangeCode: row.exchangeCode || undefined, latestPrice: quote.latestPrice, currency: quote.currency || row.currency || 'USD' }
+}
+
+export async function lookupSecurity(query: string): Promise<SecurityLookupResult> {
+  return (await lookupFromReference(query)) || lookupSecurityByIsin(query)
 }
 
 export async function lookupSecurityByIsin(rawIsin: string): Promise<SecurityLookupResult> {

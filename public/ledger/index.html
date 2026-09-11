@@ -455,6 +455,7 @@ const RECURRING_TABLE = 'recurring';
 // through a float. PostgREST returns numeric as a JSON number by default.
 const LEDGER_COLUMNS = 'id, type, direction, status, source_type, reference_no, record_date, description, category_id, legacy_category, reversal_of, amount::text, signed_amount::text';
 const authArea = document.getElementById('authArea');
+const topbar = authArea.closest('.topbar');
 const authDialog = document.getElementById('authDialog');
 const authForm = document.getElementById('authForm');
 const authEmail = document.getElementById('authEmail');
@@ -476,24 +477,15 @@ function renderAuth(session){
   authArea.replaceChildren();
 
   if(session?.user){
-    const user = document.createElement('span');
-    user.className = 'auth-user';
-    user.title = session.user.email || 'Signed in';
-    user.textContent = `◉ ${session.user.email || 'Signed in'}`;
-
-    const logout = document.createElement('button');
-    logout.className = 'auth-btn';
-    logout.type = 'button';
-    logout.textContent = 'Log out';
-    logout.addEventListener('click', async () => {
-      const { error } = await supabaseClient.auth.signOut();
-      if(error) setAuthMessage(error.message, true);
-    });
-
-    authArea.append(user, logout);
+    // Authentication is managed by the unified Finance shell. Keep the
+    // embedded Ledger free of a duplicate email/logout control strip.
+    authArea.hidden = true;
+    topbar.hidden = true;
     return;
   }
 
+  authArea.hidden = false;
+  topbar.hidden = false;
   const signIn = document.createElement('button');
   signIn.className = 'auth-btn primary';
   signIn.type = 'button';
