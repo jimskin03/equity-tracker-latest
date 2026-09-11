@@ -16,6 +16,99 @@ const distDir = path.join(__dirname, 'dist')
 // Without it the API still works at the lower unauthenticated rate limit.
 const openFigiApiKey = process.env.OPENFIGI_API_KEY
 
+// OpenFIGI response cache for POST lookups.
+// The same ISIN or company name is looked up repeatedly (re-adding a holding, a
+// retyped query, a bulk import), and the search quota is only 20 requests/minute
+// for the whole deployment. Successful responses are therefore cached in front
+// of the proxy; errors are never cached, and the store is bounded so a
+// long-lived instance cannot grow without limit.
+const openFigiCache = new Map()
+const CACHE_MAX_ENTRIES = Number(process.env.OPENFIGI_CACHE_MAX) || 500
+const HOUR_MS = 60 * 60 * 1000
+const DEFAULT_TTL_MS = Number(process.env.OPENFIGI_CACHE_TTL_MS) || HOUR_MS
+
+// Identifier mappings are effectively immutable; search results are fuzzier and
+// upstream can add listings, so they expire sooner.
+function cacheTtlMs(pathname) {
+  if (pathname === '/v3/mapping') return Number(process.env.OPENFIGI_MAPPING_TTL_MS) || 7 * 24 * HOUR_MS
+  if (pathname === '/v3/search') return Number(process.env.OPENFIGI_SEARCH_TTL_MS) || 24 * HOUR_MS
+  return DEFAULT_TTL_MS
+}
+
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+function sendBadGateway(res, label) {
+  if (!res.headersSent) {
+    res.status(502).json({ error: `${label} failed` })
+  }
+}
+
+// POST lookups are served from the cache or fetched directly; anything else
+// falls through to the proxy below.
+app.use('/api/openfigi', async (req, res, next) => {
+  if (req.method !== 'POST') return next()
+
+  let body
+  try {
+    body = await readRequestBody(req)
+  } catch (error) {
+    console.error('[openfigi cache] could not read request body:', error.message)
+    return sendBadGateway(res, 'OpenFIGI request')
+  }
+
+  const cacheKey = `${req.path}|${body.toString('utf8')}`
+  const cached = openFigiCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    // Re-insert so the eviction order stays least-recently-used.
+    openFigiCache.delete(cacheKey)
+    openFigiCache.set(cacheKey, cached)
+    for (const [header, value] of Object.entries(cached.headers)) res.set(header, value)
+    res.set('X-OpenFIGI-Cache', 'HIT')
+    return res.status(cached.status).send(cached.body)
+  }
+  if (cached) openFigiCache.delete(cacheKey)
+
+  const headers = { 'content-type': 'application/json' }
+  if (openFigiApiKey) headers['X-OPENFIGI-APIKEY'] = openFigiApiKey
+
+  try {
+    const upstream = await fetch(`https://api.openfigi.com${req.path}`, { method: 'POST', headers, body })
+    const text = await upstream.text()
+    const contentType = upstream.headers.get('content-type') || 'application/json'
+
+    for (const header of ['ratelimit-limit', 'ratelimit-remaining']) {
+      const value = upstream.headers.get(header)
+      if (value) res.set(header, value)
+    }
+
+    if (upstream.ok) {
+      if (openFigiCache.size >= CACHE_MAX_ENTRIES) {
+        const oldest = openFigiCache.keys().next().value
+        openFigiCache.delete(oldest)
+      }
+      openFigiCache.set(cacheKey, {
+        status: upstream.status,
+        headers: { 'content-type': contentType },
+        body: text,
+        expiresAt: Date.now() + cacheTtlMs(req.path),
+      })
+    }
+
+    res.set('X-OpenFIGI-Cache', 'MISS')
+    return res.status(upstream.status).type(contentType).send(text)
+  } catch (error) {
+    console.error('[openfigi cache]', error.message)
+    return sendBadGateway(res, 'OpenFIGI lookup')
+  }
+})
+
 app.use(
   '/api/openfigi',
   createProxyMiddleware({

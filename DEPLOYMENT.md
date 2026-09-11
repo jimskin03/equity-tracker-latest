@@ -76,6 +76,23 @@ Render deployment
   API still works at the unauthenticated limit, and the proxy returns the
   provider's `ratelimit-limit` / `ratelimit-remaining` headers either way.
 
+## OpenFIGI response cache
+
+`server.mjs` caches successful `POST /api/openfigi/*` responses in memory before
+the proxy, so a repeated ISIN or company-name lookup costs no quota. Only `2xx`
+responses are stored; rate-limit and error responses are never cached. Every
+response carries `X-OpenFIGI-Cache: HIT|MISS`, and a `HIT` deliberately omits the
+`ratelimit-*` headers because no upstream call was made.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OPENFIGI_MAPPING_TTL_MS` | 7 days | `/v3/mapping` cache lifetime; identifier mappings barely change |
+| `OPENFIGI_SEARCH_TTL_MS` | 24 hours | `/v3/search` cache lifetime; upstream listings change |
+| `OPENFIGI_CACHE_MAX` | 500 | Entry cap, evicted least-recently-used |
+
+The cache is per instance and resets on deploy, which is fine for the current
+scale: it exists to absorb repeated lookups, not to be a persistent store.
+
 Ports
 - Default application port: 5173 (used in local/dev Docker and server default)
 
