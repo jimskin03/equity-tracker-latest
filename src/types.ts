@@ -1,6 +1,8 @@
 export interface Holding {
   id: string
-  isin: string
+  securityId: string
+  isin?: string
+  figi?: string
   securityName: string
   ticker: string
   holdings: number
@@ -30,7 +32,8 @@ export interface SecurityMetadata {
 }
 
 export interface SecurityLookupResult extends SecurityMetadata {
-  isin: string
+  /** Absent for a listing OpenFIGI identifies only by FIGI. */
+  isin?: string
   securityName: string
   ticker: string
   exchangeCode?: string

@@ -94,7 +94,7 @@ export function HoldingsTable({
                     </div>
                   </td>
                   <td>
-                    <code>{holding.isin}</code>
+                    <code>{holding.isin || holding.figi || '—'}</code>
                   </td>
                   <td>{formatNumber(holding.holdings)}</td>
                   <td>{formatMoney(holding.costPrice, holding.currency)}</td>

@@ -26,7 +26,7 @@ export function HoldingForm({
   const [form, setForm] = useState<HoldingFormData>(() =>
     mode === 'edit' && initial
       ? {
-          isin: initial.isin,
+          isin: initial.isin ?? '',
           holdings: String(initial.holdings),
           costPrice: String(initial.costPrice),
         }
@@ -42,7 +42,10 @@ export function HoldingForm({
     const holdings = Number(form.holdings)
     const costPrice = Number(form.costPrice)
 
-    if (!isin) {
+    // Editing an existing holding does not need an identifier: a listing found
+    // by ticker carries a FIGI and no ISIN, and quantity/cost edits are still
+    // valid for it.
+    if (!isin && mode === 'create') {
       setLocalError('Search by ISIN, ticker, or company name')
       return
     }
@@ -78,7 +81,7 @@ export function HoldingForm({
         <div>
           <h2>{mode === 'create' ? 'Add holding' : 'Edit holding'}</h2>
           <p className="muted">
-            Search by ISIN, ticker, or company name. Security details come from the global instrument catalogue; latest prices come from Yahoo Finance.
+            Search by ISIN, ticker, or company name. Identifiers come from OpenFIGI; latest prices come from Yahoo Finance.
           </p>
         </div>
       </div>
@@ -94,7 +97,7 @@ export function HoldingForm({
             onChange={(e) => setForm((prev) => ({ ...prev, isin: e.target.value.toUpperCase() }))}
             autoComplete="off"
             disabled={isLoading}
-            required
+            required={mode === 'create'}
           />
         </label>
 

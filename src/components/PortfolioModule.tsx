@@ -24,7 +24,7 @@ export function PortfolioModule({ userId }: PortfolioModuleProps) {
   return (
     <section className="portfolio-stack">
       <header className="app-header">
-        <div><p className="eyebrow">Portfolio</p><h1>Equity Tracker</h1><p className="muted header-copy">Discover instruments by ticker, name, or ISIN. FinanceDatabase provides the global catalogue; OpenFIGI enriches gaps and Yahoo Finance supplies current prices.</p></div>
+        <div><p className="eyebrow">Portfolio</p><h1>Equity Tracker</h1><p className="muted header-copy">Discover instruments by ticker, name, or ISIN. OpenFIGI supplies identifiers and Yahoo Finance supplies current prices.</p></div>
         <div className="header-badge"><span>Storage</span><strong>Supabase + RLS</strong></div>
       </header>
       {(error || status) && <div className={`banner ${error ? 'error' : 'success'}`} role="status"><span>{error || status}</span><button type="button" className="banner-close" onClick={clearMessages} aria-label="Dismiss">×</button></div>}

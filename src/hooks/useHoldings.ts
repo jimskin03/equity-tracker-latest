@@ -18,7 +18,8 @@ function readableError(value: unknown, fallback: string): string {
 
 interface SecurityRow {
   id: string
-  isin: string
+  isin: string | null
+  figi: string | null
   security_name: string
   ticker: string
   exchange_code: string | null
@@ -81,8 +82,26 @@ const SECURITY_METADATA_COLUMNS = [
 const SECURITY_SELECT =
   'id, asset_type, sector, industry_group, industry, country, exchange_name, cusip, figi, composite_figi, shareclass_figi, isin, security_name, ticker, exchange_code, currency'
 
-function securityMetadata(security: SecurityLookupResult, accountId: string, isin: string): Record<string, string> {
-  const payload: Record<string, string> = { account_id: accountId, isin }
+// A security is identified by its ISIN when it has one and by its FIGI
+// otherwise: OpenFIGI's search endpoint returns FIGIs only, so a listing found
+// by ticker or name is stored without an ISIN.
+type LooseSecurity = { isin?: string; figi?: string }
+
+function identityOf(security: LooseSecurity): { column: 'isin' | 'figi'; value: string } | null {
+  if (security.isin) return { column: 'isin', value: security.isin }
+  if (security.figi) return { column: 'figi', value: security.figi }
+  return null
+}
+
+function sameListing(a: LooseSecurity, b: LooseSecurity): boolean {
+  if (a.figi && b.figi) return a.figi === b.figi
+  if (a.isin && b.isin) return a.isin === b.isin
+  return false
+}
+
+function securityMetadata(security: SecurityLookupResult, accountId: string): Record<string, string> {
+  const payload: Record<string, string> = { account_id: accountId }
+  if (security.isin) payload.isin = security.isin
   for (const [column, key] of SECURITY_METADATA_COLUMNS) {
     const value = security[key]
     if (typeof value === 'string' && value) payload[column] = value
@@ -94,10 +113,17 @@ async function saveSecurity(
   accountId: string,
   security: SecurityLookupResult,
 ): Promise<SecurityRow> {
-  const existing = await portfolioDb.from('securities').select('id').eq('account_id', accountId).eq('isin', security.isin).maybeSingle()
+  const identity = identityOf(security)
+  if (!identity) throw new Error('OpenFIGI did not return an identifier for this security.')
+  const existing = await portfolioDb
+    .from('securities')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq(identity.column, identity.value)
+    .maybeSingle()
   if (existing.error) throw existing.error
   const payload = {
-    ...securityMetadata(security, accountId, security.isin),
+    ...securityMetadata(security, accountId),
     security_name: security.securityName,
     ticker: security.ticker,
     exchange_code: security.exchangeCode || null,
@@ -132,11 +158,29 @@ async function savePrice(
   if (error) throw error
 }
 
+// Deleting the last holding for a listing leaves its securities row behind.
+// Drop it once nothing references it; prices cascade with it, while a security
+// that still has trades is kept (the trades FK restricts the delete).
+async function removeOrphanedSecurity(accountId: string, holding: Holding | undefined): Promise<void> {
+  if (!holding?.securityId) return
+  const { count, error: countError } = await portfolioDb
+    .from('holdings')
+    .select('id', { count: 'exact', head: true })
+    .eq('security_id', holding.securityId)
+  if (countError || (count ?? 0) > 0) return
+  const { error } = await portfolioDb
+    .from('securities')
+    .delete()
+    .eq('id', holding.securityId)
+    .eq('account_id', accountId)
+  if (error) console.warn('[portfolio] orphaned security left in place:', error.message)
+}
+
 async function fetchHoldings(accountId: string): Promise<Holding[]> {
   const [securityResult, holdingResult, priceResult] = await Promise.all([
     portfolioDb
       .from('securities')
-      .select('id, isin, security_name, ticker, exchange_code, currency')
+      .select('id, isin, figi, security_name, ticker, exchange_code, currency')
       .eq('account_id', accountId),
     portfolioDb
       .from('holdings')
@@ -168,7 +212,9 @@ async function fetchHoldings(accountId: string): Promise<Holding[]> {
     const costPrice = Number(holding.average_cost)
     return [{
       id: holding.id,
-      isin: security.isin,
+      securityId: holding.security_id,
+      isin: security.isin || undefined,
+      figi: security.figi || undefined,
       securityName: security.security_name,
       ticker: security.ticker,
       holdings: Number(holding.quantity),
@@ -185,9 +231,13 @@ async function importLegacyHoldings(accountId: string, userId: string): Promise<
   const legacy = readLegacyHoldings()
   if (!legacy.length) return 0
 
+  let imported = 0
   for (const holding of legacy) {
+    const isin = (holding.isin || '').trim().toUpperCase()
+    if (!isin && !holding.figi) continue
     const security = await saveSecurity(accountId, {
-      isin: holding.isin.trim().toUpperCase(),
+      isin: isin || undefined,
+      figi: holding.figi,
       securityName: holding.securityName,
       ticker: holding.ticker,
       latestPrice: holding.latestPrice,
@@ -210,12 +260,13 @@ async function importLegacyHoldings(accountId: string, userId: string): Promise<
       holding.currency,
       holding.updatedAt || new Date().toISOString(),
     )
+    imported += 1
   }
 
   // Retain the original payload as a rollback copy; the marker only prevents
   // repeated imports after the database cutover succeeds.
   localStorage.setItem(migrationMarker(userId), new Date().toISOString())
-  return legacy.length
+  return imported
 }
 
 export function useHoldings(userId: string) {
@@ -261,12 +312,12 @@ export function useHoldings(userId: string) {
     return () => { active = false }
   }, [userId])
 
-  const addHolding = useCallback(async (isin: string, quantity: number, costPrice: number) => {
+  const addHolding = useCallback(async (query: string, quantity: number, costPrice: number) => {
     if (!accountId) throw new Error('Portfolio account is not ready')
     clearMessages(); setIsLoading(true)
     try {
-      const lookup = await lookupSecurity(isin)
-      if (holdings.some((holding) => holding.isin === lookup.isin && holding.ticker === lookup.ticker)) throw new Error(`This listing is already held. Edit the existing row instead.`)
+      const lookup = await lookupSecurity(query)
+      if (holdings.some((holding) => sameListing(holding, lookup))) throw new Error(`This listing is already held. Edit the existing row instead.`)
       const security = await saveSecurity(accountId, lookup)
       const { error: saveError } = await portfolioDb.from('holdings').insert({ account_id: accountId, security_id: security.id, quantity, average_cost: costPrice })
       if (saveError) throw saveError
@@ -285,15 +336,20 @@ export function useHoldings(userId: string) {
     try {
       const current = holdings.find((holding) => holding.id === id)
       if (!current) throw new Error('Holding not found')
-      const nextIsin = (updates.isin || current.isin).trim().toUpperCase()
-      const needsLookup = nextIsin !== current.isin || options?.refreshMarketData
+      const nextIsin = (updates.isin ?? current.isin ?? '').trim().toUpperCase()
+      // A FIGI-only listing has no ISIN to look up, so it can only have its
+      // price refreshed.
+      const listingChanged = Boolean(nextIsin) && nextIsin !== (current.isin || '')
       let securityId: string | undefined
-      if (needsLookup) {
+      if (listingChanged) {
         const lookup = await lookupSecurity(nextIsin)
-        if (holdings.some((holding) => holding.id !== id && holding.isin === lookup.isin && holding.ticker === lookup.ticker)) throw new Error('Another holding already uses this listing')
+        if (holdings.some((holding) => holding.id !== id && sameListing(holding, lookup))) throw new Error('Another holding already uses this listing')
         const security = await saveSecurity(accountId, lookup)
         securityId = security.id
         await savePrice(accountId, security.id, lookup.latestPrice, lookup.currency)
+      } else if (options?.refreshMarketData) {
+        const quote = await refreshLatestPrice(current.ticker)
+        if (quote) await savePrice(accountId, current.securityId, quote.latestPrice, quote.currency)
       }
       const values: Record<string, string | number> = { quantity: updates.holdings, average_cost: updates.costPrice }
       if (securityId) values.security_id = securityId
@@ -311,29 +367,40 @@ export function useHoldings(userId: string) {
     if (!accountId) return
     clearMessages(); setIsLoading(true)
     try {
+      const current = holdings.find((holding) => holding.id === id)
       const { error: deleteError } = await portfolioDb
         .from('holdings')
         .delete()
         .eq('id', id)
         .eq('account_id', accountId)
       if (deleteError) throw deleteError
+      await removeOrphanedSecurity(accountId, current)
       await reload(accountId); setStatus('Holding deleted')
     } catch (deleteError) {
       setError(readableError(deleteError, 'Failed to delete holding'))
     } finally { setIsLoading(false) }
-  }, [accountId, clearMessages, reload])
+  }, [accountId, clearMessages, holdings, reload])
 
   const refreshAllPrices = useCallback(async () => {
     if (!accountId || holdings.length === 0) return
     clearMessages(); setIsLoading(true)
     try {
-      await Promise.all(holdings.map(async (holding) => {
+      const results = await Promise.all(holdings.map(async (holding) => {
         const quote = await refreshLatestPrice(holding.ticker)
-        if (!quote) return
-        const security = await saveSecurity(accountId, { isin: holding.isin, securityName: holding.securityName, ticker: holding.ticker, latestPrice: quote.latestPrice, currency: quote.currency })
+        if (!quote) return true
+        const security = await saveSecurity(accountId, {
+          isin: holding.isin,
+          figi: holding.figi,
+          securityName: holding.securityName,
+          ticker: holding.ticker,
+          latestPrice: quote.latestPrice,
+          currency: quote.currency,
+        })
         await savePrice(accountId, security.id, quote.latestPrice, quote.currency)
+        return true
       }))
-      await reload(accountId); setStatus('Latest prices refreshed')
+      await reload(accountId)
+      setStatus(results.every(Boolean) ? 'Latest prices refreshed' : 'Latest prices refreshed, with some quotes unavailable')
     } catch (refreshError) {
       setError(readableError(refreshError, 'Failed to refresh prices'))
     } finally { setIsLoading(false) }

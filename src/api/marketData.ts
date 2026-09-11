@@ -188,8 +188,65 @@ async function resolveLatestPrice(
   }
 }
 
+interface OpenFigiSearchResponse {
+  data?: OpenFigiMapping[]
+  error?: string
+}
+
+// OpenFIGI's search endpoint takes a free-text ticker or company name. It never
+// returns an ISIN — only FIGIs — so a result resolved this way is identified by
+// figi. Rate limits are tighter than /v3/mapping (a handful of calls a minute
+// without an API key), which is why the ISIN path stays the precise one.
+async function searchOpenFigi(query: string): Promise<OpenFigiMapping[]> {
+  const response = await fetch('/api/openfigi/v3/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`OpenFIGI search failed (${response.status})`)
+  }
+
+  const payload = await parseJsonResponse<OpenFigiSearchResponse>(response, 'OpenFIGI search')
+  if (payload.error) throw new Error(payload.error)
+  return payload.data || []
+}
+
+async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult> {
+  const matches = (await searchOpenFigi(term)).filter((item) => item.ticker && item.figi)
+  if (!matches.length) {
+    throw new Error(`No security found for "${term}". Try a ticker like AAPL or the full company name.`)
+  }
+
+  const upper = term.toUpperCase()
+  const preferred =
+    matches.find((item) => item.ticker?.toUpperCase() === upper) ||
+    matches.find((item) => item.marketSector === 'Equity') ||
+    matches[0]
+
+  const quote = await resolveLatestPrice(preferred)
+
+  return {
+    securityName: preferred.name || 'Unknown Security',
+    ticker: quote.resolvedTicker || preferred.ticker || 'N/A',
+    exchangeCode: preferred.exchCode,
+    latestPrice: quote.latestPrice,
+    currency: quote.currency,
+    assetType: preferred.marketSector ? preferred.marketSector.toLowerCase() : 'equity',
+    figi: preferred.figi,
+    compositeFigi: preferred.compositeFIGI,
+    shareclassFigi: preferred.shareClassFIGI,
+  }
+}
+
 export async function lookupSecurity(query: string): Promise<SecurityLookupResult> {
-  return lookupSecurityByIsin(query)
+  const term = query.trim()
+  if (!term) throw new Error('Enter a ticker, a company name, or an ISIN.')
+
+  const maybeIsin = normalizeIsin(term)
+  if (isValidIsin(maybeIsin)) return lookupSecurityByIsin(maybeIsin)
+  return lookupSecurityByQuery(term)
 }
 
 export async function lookupSecurityByIsin(rawIsin: string): Promise<SecurityLookupResult> {
