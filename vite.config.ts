@@ -23,6 +23,15 @@ export default defineConfig({
           'User-Agent': 'Mozilla/5.0',
         },
       },
+      // Bank Negara Malaysia Open API proxy
+      '/api/bnm': {
+        target: 'https://api.bnm.gov.my',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/bnm/, '/public'),
+        headers: {
+          Accept: 'application/vnd.BNM.API.v1+json',
+        },
+      },
     },
   },
   preview: {

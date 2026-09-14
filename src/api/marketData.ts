@@ -22,6 +22,7 @@ interface YahooChartMeta {
   currency?: string
   regularMarketPrice?: number
   previousClose?: number
+  chartPreviousClose?: number
   shortName?: string
   longName?: string
   exchangeName?: string
@@ -126,6 +127,10 @@ function buildYahooSymbols(mapping: OpenFigiMapping): string[] {
     KQ: '.KQ',
     TW: '.TW',
     TWO: '.TWO',
+    MK: '.KL',
+    KL: '.KL',
+    MY: '.KL',
+    KLS: '.KL',
   }
 
   const suffix = suffixByExchange[exchange]
@@ -168,16 +173,17 @@ async function fetchYahooQuote(symbol: string): Promise<YahooChartMeta | null> {
 
 async function resolveLatestPrice(
   mapping: OpenFigiMapping,
-): Promise<{ latestPrice: number; currency: string; resolvedTicker: string }> {
+): Promise<{ latestPrice: number; previousClose?: number; currency: string; resolvedTicker: string }> {
   const candidates = buildYahooSymbols(mapping)
 
   for (const symbol of candidates) {
     const meta = await fetchYahooQuote(symbol)
-    const price = meta?.regularMarketPrice ?? meta?.previousClose
+    const price = meta?.regularMarketPrice ?? meta?.chartPreviousClose ?? meta?.previousClose
 
     if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
       return {
         latestPrice: price,
+        previousClose: meta?.chartPreviousClose ?? meta?.previousClose,
         currency: meta?.currency || 'USD',
         resolvedTicker: meta?.symbol || symbol,
       }
@@ -264,6 +270,7 @@ async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult
     ticker: quote.resolvedTicker || preferred.ticker || 'N/A',
     exchangeCode: preferred.exchCode,
     latestPrice: quote.latestPrice,
+    previousClose: quote.previousClose,
     currency: quote.currency,
     assetType: preferred.marketSector ? preferred.marketSector.toLowerCase() : 'equity',
     figi: preferred.figi,
@@ -272,9 +279,70 @@ async function lookupSecurityByQuery(term: string): Promise<SecurityLookupResult
   }
 }
 
+// Well-known Bursa stock names mapping for common numeric codes
+const BURSA_NAMES: Record<string, string> = {
+  '1155': 'Maybank',
+  '1023': 'CIMB Group',
+  '1295': 'Public Bank',
+  '5347': 'Tenaga Nasional',
+  '5211': 'Sunway',
+  '5249': 'Capital A (AirAsia)',
+  '4677': 'YTL Corporation',
+  '1015': 'AMMB Holdings',
+  '1066': 'RHB Bank',
+  '8869': 'Press Metal',
+  '6012': 'Maxis',
+  '6888': 'Axiata Group',
+  '5183': 'Petronas Chemicals',
+  '5681': 'Petronas Dagangan',
+  '4707': 'Nestle (Malaysia)',
+  '3182': 'Genting',
+  '4715': 'Genting Malaysia',
+  '5819': 'Hong Leong Bank',
+  '7084': 'QL Resources',
+  '2445': 'KL Kepong',
+  '1961': 'IOI Corporation',
+}
+
+async function lookupBursaStock(code: string): Promise<SecurityLookupResult | null> {
+  const cleanCode = code.replace(/\.KL$/i, '').trim()
+  const yahooSymbol = `${cleanCode}.KL`
+  const meta = await fetchYahooQuote(yahooSymbol)
+  if (!meta) return null
+
+  const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? meta.previousClose ?? 0
+  if (price <= 0) return null
+
+  const prev = meta.chartPreviousClose ?? meta.previousClose
+  const fallbackName = BURSA_NAMES[cleanCode] || `Bursa ${cleanCode}`
+  const name = meta.shortName || meta.longName || fallbackName
+
+  return {
+    securityName: name,
+    ticker: yahooSymbol,
+    exchangeCode: 'KLS',
+    latestPrice: price,
+    previousClose: prev,
+    currency: meta.currency || 'MYR',
+    assetType: 'equity',
+    figi: `BURSA_${cleanCode}`,
+    compositeFigi: `BURSA_${cleanCode}`,
+  }
+}
+
 export async function lookupSecurity(query: string): Promise<SecurityLookupResult> {
   const term = query.trim()
   if (!term) throw new Error('Enter a ticker, a company name, or an ISIN.')
+
+  // Check for 4-to-6 digit Bursa numeric code (e.g. 1155, 1023, 1295, 5347) or explicit .KL
+  if (/^\d{4,6}(\.KL)?$/i.test(term)) {
+    try {
+      const bursa = await lookupBursaStock(term)
+      if (bursa && bursa.latestPrice > 0) return bursa
+    } catch (err) {
+      console.warn('[bursa direct lookup error]', err)
+    }
+  }
 
   const maybeIsin = normalizeIsin(term)
   if (isValidIsin(maybeIsin)) return lookupSecurityByIsin(maybeIsin)
@@ -297,6 +365,7 @@ export async function lookupSecurityByIsin(rawIsin: string): Promise<SecurityLoo
     ticker: quote.resolvedTicker,
     exchangeCode: mapping.exchCode,
     latestPrice: quote.latestPrice,
+    previousClose: quote.previousClose,
     currency: quote.currency,
     // Identifiers come from OpenFIGI directly, so a holding carries its FIGI
     // even when nothing is cached in the instrument master.
@@ -309,11 +378,11 @@ export async function lookupSecurityByIsin(rawIsin: string): Promise<SecurityLoo
 
 export async function refreshLatestPrice(
   ticker: string,
-): Promise<{ latestPrice: number; currency: string } | null> {
+): Promise<{ latestPrice: number; previousClose?: number; currency: string } | null> {
   if (!ticker || ticker === 'N/A') return null
 
   const meta = await fetchYahooQuote(ticker)
-  const price = meta?.regularMarketPrice ?? meta?.previousClose
+  const price = meta?.regularMarketPrice ?? meta?.chartPreviousClose ?? meta?.previousClose
 
   if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
     return null
@@ -321,6 +390,7 @@ export async function refreshLatestPrice(
 
   return {
     latestPrice: price,
+    previousClose: meta?.chartPreviousClose ?? meta?.previousClose,
     currency: meta?.currency || 'USD',
   }
 }

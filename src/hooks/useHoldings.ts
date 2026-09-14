@@ -410,7 +410,27 @@ export function useHoldings(userId: string) {
     const totalCost = holdings.reduce((sum, holding) => sum + holding.holdings * holding.costPrice, 0)
     const totalMarket = holdings.reduce((sum, holding) => sum + holding.holdings * holding.latestPrice, 0)
     const pnl = totalMarket - totalCost
-    return { totalCost, totalMarket, pnl, pnlPct: totalCost > 0 ? (pnl / totalCost) * 100 : 0, count: holdings.length }
+    const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0
+
+    const todayChange = holdings.reduce((sum, holding) => {
+      const prev = holding.previousClose ?? holding.latestPrice
+      return sum + (holding.latestPrice - prev) * holding.holdings
+    }, 0)
+    const todayBase = holdings.reduce((sum, holding) => {
+      const prev = holding.previousClose ?? holding.latestPrice
+      return sum + prev * holding.holdings
+    }, 0)
+    const todayChangePct = todayBase > 0 ? (todayChange / todayBase) * 100 : 0
+
+    return {
+      totalCost,
+      totalMarket,
+      pnl,
+      pnlPct,
+      todayChange,
+      todayChangePct,
+      count: holdings.length,
+    }
   }, [holdings])
 
   return { holdings, isLoading, error, status, summary, addHolding, updateHolding, deleteHolding, refreshAllPrices, clearMessages }

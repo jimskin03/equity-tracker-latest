@@ -1,34 +1,142 @@
+import { useEffect, useState } from 'react'
+import type { MalaysiaOverview } from '../types'
+import { fetchMalaysiaOverview } from '../api/malaysia'
+import { useHoldings } from '../hooks/useHoldings'
+import { useCashBalance } from '../hooks/useCashBalance'
+import { useRecentActivity } from '../hooks/useRecentActivity'
+import { DashboardKpis } from './dashboard/DashboardKpis'
+import { PerformanceChart } from './dashboard/PerformanceChart'
+import { MalaysiaMarketCard } from './dashboard/MalaysiaMarketCard'
+import { TopHoldings } from './dashboard/TopHoldings'
+import { RecentActivity } from './dashboard/RecentActivity'
+import { QuickSearch } from './dashboard/QuickSearch'
+
 interface DashboardProps {
   email: string
-  onNavigate: (view: 'ledger' | 'portfolio') => void
+  userId: string
+  onNavigate: (view: 'dashboard' | 'ledger' | 'portfolio' | 'markets' | 'malaysia' | 'analytics') => void
 }
-export function Dashboard({ email, onNavigate }: DashboardProps) {
+
+export function Dashboard({ userId, onNavigate }: DashboardProps) {
+  const { holdings, summary } = useHoldings(userId)
+  const { balance: cashBalance } = useCashBalance(userId)
+  const { activities } = useRecentActivity(userId)
+
+  const [malaysiaData, setMalaysiaData] = useState<MalaysiaOverview | null>(null)
+  const [currentDateTime, setCurrentDateTime] = useState('')
+
+  useEffect(() => {
+    // Format live date & time like "Tue, 3 Sep 2024 10:24 AM"
+    const updateTime = () => {
+      const now = new Date()
+      const formatted = now.toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }) + ' ' + now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      setCurrentDateTime(formatted)
+    }
+
+    updateTime()
+    const timer = setInterval(updateTime, 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetchMalaysiaOverview().then((res) => {
+      if (active) setMalaysiaData(res)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
-    <section className="dashboard-stack">
-      <header className="hero-card">
-        <div>
-          <p className="eyebrow">Finance workspace</p>
-          <h1>Welcome back</h1>
-          <p className="muted">{email}</p>
+    <section className="dashboard-root" aria-label="Finance Dashboard">
+      {/* Top Welcome Header matching mock */}
+      <header className="dashboard-top-header">
+        <div className="header-greeting">
+          <span className="workspace-eyebrow">FINANCIAL WORKSPACE</span>
+          <h1 className="welcome-heading">Welcome back</h1>
+          <p className="welcome-subhead muted">Here's your portfolio and market overview.</p>
         </div>
-        <div className="session-chip"><span className="session-dot" />Shared session active</div>
+
+        <div className="header-meta">
+          <div className="malaysia-status-badge">
+            <span className="flag-icon" role="img" aria-label="Malaysia">????</span>
+            <div className="badge-text-group">
+              <strong className="badge-title">Malaysia Market</strong>
+              <span className="badge-subtitle muted">Live data</span>
+            </div>
+          </div>
+
+          <div className="header-right-col">
+            <span className="live-clock muted">{currentDateTime}</span>
+            <div className="system-status-chip">
+              <span className="status-dot-green" />
+              <span>All systems online</span>
+            </div>
+          </div>
+        </div>
       </header>
-      <div className="module-grid">
-        <article className="module-card ledger-module-card">
-          <p className="eyebrow">Cash flow</p><h2>Ledger</h2>
-          <p>Income, expenses, recurring payments, receipts, transfers, reversals, and the complete account-scoped audit trail.</p>
-          <button className="btn primary" type="button" onClick={() => onNavigate('ledger')}>Open Ledger</button>
-        </article>
-        <article className="module-card portfolio-module-card">
-          <p className="eyebrow">Investments</p><h2>Portfolio</h2>
-          <p>Supabase-synced holdings with ISIN lookup, current market prices, cost basis, and unrealized performance.</p>
-          <button className="btn primary" type="button" onClick={() => onNavigate('portfolio')}>Open Portfolio</button>
-        </article>
-      </div>
-      <aside className="card architecture-note">
-        <strong>One identity, separated financial domains</strong>
-        <span className="muted">Ledger and Portfolio share your Supabase Auth user while each service keeps its own account-scoped schema and row-level security policies.</span>
-      </aside>
+
+      {/* 1. Top KPI Cards Row */}
+      <DashboardKpis
+        portfolioValue={summary.totalMarket}
+        totalCost={summary.totalCost}
+        totalPnl={summary.pnl}
+        totalPnlPct={summary.pnlPct}
+        todayChange={summary.todayChange || 0}
+        todayChangePct={summary.todayChangePct || 0}
+        cashBalance={cashBalance}
+      />
+
+      {/* 2. Middle Row: Performance Chart + Malaysia Market Card */}
+      <section className="dashboard-middle-grid" aria-label="Charts and Macro indicators">
+        <div className="performance-col">
+          <PerformanceChart holdings={holdings} />
+        </div>
+
+        <div className="malaysia-col-wrapper">
+          {malaysiaData ? (
+            <MalaysiaMarketCard
+              overview={malaysiaData}
+              onViewMore={() => onNavigate('malaysia')}
+            />
+          ) : (
+            <div className="loading-card-placeholder">Loading market overview�</div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. Bottom Row: Top Holdings + Recent Activity + Quick Search */}
+      <section className="dashboard-bottom-grid" aria-label="Holdings, Activity and Quick Search">
+        <div className="bottom-col">
+          <TopHoldings
+            holdings={holdings}
+            onViewAll={() => onNavigate('portfolio')}
+          />
+        </div>
+
+        <div className="bottom-col">
+          <RecentActivity
+            activities={activities}
+            onViewAll={() => onNavigate('ledger')}
+          />
+        </div>
+
+        <div className="bottom-col">
+          <QuickSearch
+            onNavigateToPortfolio={() => onNavigate('portfolio')}
+          />
+        </div>
+      </section>
     </section>
   )
 }

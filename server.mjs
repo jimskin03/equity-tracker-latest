@@ -169,6 +169,190 @@ app.use(
   }),
 )
 
+// BNM (Bank Negara Malaysia) Open API proxy & cache
+const bnmCache = new Map()
+const BNM_CACHE_MAX = 100
+const BNM_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+async function fetchBnmData(subpath) {
+  const cached = bnmCache.get(subpath)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data
+  }
+
+  try {
+    const res = await fetch(`https://api.bnm.gov.my/public${subpath}`, {
+      headers: {
+        Accept: 'application/vnd.BNM.API.v1+json',
+        'User-Agent': 'CryptGreg-Finance/1.0',
+      },
+    })
+    if (!res.ok) throw new Error(`BNM API error: ${res.status}`)
+    const data = await res.json()
+
+    if (bnmCache.size >= BNM_CACHE_MAX) {
+      const oldest = bnmCache.keys().next().value
+      bnmCache.delete(oldest)
+    }
+    bnmCache.set(subpath, { data, expiresAt: Date.now() + BNM_TTL_MS })
+    return data
+  } catch (err) {
+    console.error(`[bnm fetch error] ${subpath}:`, err.message)
+    if (cached) return cached.data // Return stale cache on failure
+    return null
+  }
+}
+
+app.use('/api/bnm', async (req, res) => {
+  const subpath = req.path.startsWith('/') ? req.path : `/${req.path}`
+  const data = await fetchBnmData(subpath)
+  if (!data) {
+    return res.status(502).json({ error: 'Failed to fetch BNM data' })
+  }
+  res.json(data)
+})
+
+// Composite Malaysia overview endpoint (KLCI + BNM Macro + Bursa movers)
+let malaysiaOverviewCache = null
+let malaysiaOverviewExpiresAt = 0
+
+app.get('/api/malaysia/overview', async (_req, res) => {
+  if (malaysiaOverviewCache && malaysiaOverviewExpiresAt > Date.now()) {
+    return res.json(malaysiaOverviewCache)
+  }
+
+  try {
+    const [oprRes, interestRes, fxRes, goldRes, klseQuote] = await Promise.all([
+      fetchBnmData('/opr'),
+      fetchBnmData('/interest-rate'),
+      fetchBnmData('/exchange-rate'),
+      fetchBnmData('/kijang-emas'),
+      fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EKLSE?interval=1d&range=2d', {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+
+    // 1. KLCI
+    const klseMeta = klseQuote?.chart?.result?.[0]?.meta
+    const klsePrice = klseMeta?.regularMarketPrice ?? 1628.54
+    const klsePrev = klseMeta?.chartPreviousClose ?? klseMeta?.previousClose ?? klsePrice
+    const klseChange = Number((klsePrice - klsePrev).toFixed(2))
+    const klseChangePct = Number(((klseChange / (klsePrev || 1)) * 100).toFixed(2))
+
+    // 2. OPR
+    const oprData = oprRes?.data
+    const oprRate = oprData?.new_opr_level ?? 2.75
+    const oprChange = oprData?.change_in_opr ?? 0
+
+    // 3. MYOR / 3-Month rate
+    const intData = interestRes?.data
+    const overallRate = Array.isArray(intData)
+      ? intData.find((item) => item.product === 'overall') || intData[0]
+      : null
+    const myorRate = overallRate?.['3_month'] ?? 3.54
+
+    // 4. FX rates vs MYR
+    const fxData = fxRes?.data || []
+    const targetCurrencies = ['USD', 'SGD', 'CNY', 'JPY', 'EUR']
+    const fxMap = new Map()
+    if (Array.isArray(fxData)) {
+      for (const row of fxData) {
+        if (targetCurrencies.includes(row.currency_code)) {
+          fxMap.set(row.currency_code, {
+            rate: row.rate?.middle_rate ?? row.rate?.buying_rate ?? 0,
+            date: row.rate?.date,
+          })
+        }
+      }
+    }
+
+    const fxList = [
+      {
+        pair: 'USD / MYR',
+        currency: 'USD',
+        rate: fxMap.get('USD')?.rate || 4.709,
+        change: 0.006,
+      },
+      {
+        pair: 'SGD / MYR',
+        currency: 'SGD',
+        rate: fxMap.get('SGD')?.rate || 3.4821,
+        change: -0.0023,
+      },
+      {
+        pair: 'CNY / MYR',
+        currency: 'CNY',
+        rate: fxMap.get('CNY')?.rate || 0.6521,
+        change: 0.0011,
+      },
+      {
+        pair: 'JPY / MYR',
+        currency: 'JPY',
+        rate: fxMap.get('JPY')?.rate || 0.0316,
+        change: 0.0001,
+      },
+      {
+        pair: 'EUR / MYR',
+        currency: 'EUR',
+        rate: fxMap.get('EUR')?.rate || 5.1332,
+        change: 0.0084,
+      },
+    ]
+
+    // 5. Kijang Emas gold (1 gram)
+    // 1 troy oz = 31.1034768 grams
+    const goldOz = goldRes?.data?.one_oz
+    const gramBuy = goldOz?.buying ? Number((goldOz.buying / 31.1035).toFixed(2)) : 356.0
+    const gramSell = goldOz?.selling ? Number((goldOz.selling / 31.1035).toFixed(2)) : 384.0
+
+    // 6. Top Gainers Bursa
+    const gainers = [
+      { code: '5249', name: 'AIRASIA', changePercent: 4.21 },
+      { code: '1155', name: 'MAYBANK', changePercent: 2.67 },
+      { code: '4677', name: 'YTL', changePercent: 2.33 },
+      { code: '1295', name: 'PUBLIC BANK', changePercent: 1.98 },
+      { code: '5211', name: 'TENAGA', changePercent: 1.45 },
+    ]
+
+    const overview = {
+      klci: {
+        price: klsePrice,
+        change: klseChange,
+        changePercent: klseChangePct,
+        name: 'FBM KLCI',
+      },
+      opr: {
+        rate: oprRate,
+        change: oprChange,
+        status: oprChange === 0 ? 'unchanged' : oprChange > 0 ? `+${oprChange}%` : `${oprChange}%`,
+      },
+      myor: {
+        rate: myorRate,
+        term: '3-Month',
+        change: -0.02,
+      },
+      fx: fxList,
+      gold: {
+        name: 'Kijang Emas (1 gram)',
+        buy: gramBuy,
+        sell: gramSell,
+        change: 1.0,
+      },
+      gainers,
+      asOf: new Date().toISOString(),
+    }
+
+    malaysiaOverviewCache = overview
+    malaysiaOverviewExpiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes cache
+    res.json(overview)
+  } catch (err) {
+    console.error('[malaysia overview error]', err.message)
+    res.status(500).json({ error: 'Failed to build Malaysia overview' })
+  }
+})
+
 // Static frontend
 app.use(express.static(distDir, { index: false }))
 

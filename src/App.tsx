@@ -3,14 +3,27 @@ import { AuthGate } from './components/AuthGate'
 import { Dashboard } from './components/Dashboard'
 import { LedgerModule } from './components/LedgerModule'
 import { PortfolioModule } from './components/PortfolioModule'
+import { MarketsModule } from './components/MarketsModule'
+import { MalaysiaModule } from './components/MalaysiaModule'
+import { AnalyticsModule } from './components/AnalyticsModule'
 import { useAuth } from './hooks/useAuth'
 import './App.css'
 
-type View = 'dashboard' | 'ledger' | 'portfolio'
+type View = 'dashboard' | 'ledger' | 'portfolio' | 'markets' | 'malaysia' | 'analytics'
+
+const NAV_ITEMS: Array<{ id: View; label: string; icon: string }> = [
+  { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
+  { id: 'ledger', label: 'Ledger', icon: '≋' },
+  { id: 'portfolio', label: 'Portfolio', icon: '↗' },
+  { id: 'markets', label: 'Markets', icon: 'ılı' },
+  { id: 'malaysia', label: 'Malaysia', icon: '🇲🇾' },
+  { id: 'analytics', label: 'Analytics', icon: '◷' },
+]
 
 function viewFromHash(): View {
-  const value = window.location.hash.replace(/^#\/?/, '')
-  return value === 'ledger' || value === 'portfolio' ? value : 'dashboard'
+  const value = window.location.hash.replace(/^#\/?/, '').toLowerCase() as View
+  const valid: View[] = ['dashboard', 'ledger', 'portfolio', 'markets', 'malaysia', 'analytics']
+  return valid.includes(value) ? value : 'dashboard'
 }
 
 function App() {
@@ -40,10 +53,15 @@ function App() {
           <span><strong>CryptGreg</strong><small>Finance</small></span>
         </button>
         <nav aria-label="Finance modules">
-          {(['dashboard', 'ledger', 'portfolio'] as const).map((item) => (
-            <button key={item} type="button" className={view === item ? 'nav-item active' : 'nav-item'} onClick={() => navigate(item)}>
-              <span className="nav-icon">{item === 'dashboard' ? '⌂' : item === 'ledger' ? '≋' : '↗'}</span>
-              {item[0].toUpperCase() + item.slice(1)}
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={view === item.id ? 'nav-item active' : 'nav-item'}
+              onClick={() => navigate(item.id)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
             </button>
           ))}
         </nav>
@@ -55,9 +73,20 @@ function App() {
       </aside>
       <main className="workspace-main">
         {error && <div className="banner error auth-error">{error}</div>}
-        {view === 'dashboard' && <Dashboard email={session.user.email || 'CryptGreg user'} onNavigate={(next) => navigate(next)} />}
+        {view === 'dashboard' && (
+          <Dashboard
+            email={session.user.email || 'CryptGreg user'}
+            userId={session.user.id}
+            onNavigate={(next) => navigate(next)}
+          />
+        )}
         {view === 'ledger' && <LedgerModule userId={session.user.id} />}
         {view === 'portfolio' && <PortfolioModule userId={session.user.id} />}
+        {view === 'markets' && <MarketsModule />}
+        {view === 'malaysia' && (
+          <MalaysiaModule onNavigateToPortfolio={() => navigate('portfolio')} />
+        )}
+        {view === 'analytics' && <AnalyticsModule userId={session.user.id} />}
       </main>
     </div>
   )

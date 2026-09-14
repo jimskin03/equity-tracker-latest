@@ -531,3 +531,1085 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   DASHBOARD ROOT & HEADER (MATCHING REFERENCE MOCK)
+   ========================================================================== */
+
+.dashboard-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.dashboard-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.workspace-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.welcome-heading {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.welcome-subhead {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.malaysia-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.85rem;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.flag-icon {
+  font-size: 1.4rem;
+}
+
+.badge-text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-title {
+  font-size: 0.82rem;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.badge-subtitle {
+  font-size: 0.7rem;
+  color: #38bdf8;
+}
+
+.header-right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.live-clock {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.system-status-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.status-dot-green {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+/* ==========================================================================
+   TOP KPI CARDS (4-COLUMN ROW)
+   ========================================================================== */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.kpi-card {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.kpi-card:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.kpi-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.kpi-icon-badge {
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 0.45rem;
+}
+
+.kpi-trend {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.kpi-trend.pos,
+.pos {
+  color: #10b981;
+}
+
+.kpi-trend.neg,
+.neg {
+  color: #ef4444;
+}
+
+.kpi-trend.neutral {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.trend-arrow {
+  font-size: 0.7rem;
+}
+
+/* ==========================================================================
+   MIDDLE ROW (PERFORMANCE CHART + MALAYSIA MARKET CARD)
+   ========================================================================== */
+
+.dashboard-middle-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.performance-col,
+.malaysia-col-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Performance Chart Card */
+.chart-card {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #f8fafc;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.period-pills {
+  display: flex;
+  background: #090e1c;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.period-pill {
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.period-pill:hover {
+  color: #f8fafc;
+}
+
+.period-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.chart-svg-container {
+  width: 100%;
+  flex: 1;
+  min-height: 240px;
+}
+
+.performance-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(30, 41, 69, 0.6);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.portfolio-dot {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.klci-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.legend-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.legend-val {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.legend-date-chip {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.12);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+
+.chart-loading-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(13, 21, 39, 0.85);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #38bdf8;
+}
+
+/* Malaysia Market Card */
+.malaysia-card {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.card-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.view-link {
+  background: transparent;
+  border: 0;
+  color: #38bdf8;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.view-link:hover {
+  text-decoration: underline;
+  color: #7dd3fc;
+}
+
+.malaysia-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  flex: 1;
+}
+
+.malaysia-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+/* FBM KLCI row */
+.klci-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(30, 41, 69, 0.6);
+}
+
+.klci-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #f8fafc;
+}
+
+.my-flag {
+  font-size: 1.1rem;
+}
+
+.klci-val-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.klci-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.klci-change {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Macro Rows: OPR & MYOR */
+.macro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.macro-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #f8fafc;
+}
+
+.macro-icon {
+  font-size: 0.95rem;
+}
+
+.macro-val {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.rate-num {
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.rate-status {
+  font-size: 0.72rem;
+}
+
+.rate-change {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* FX Section */
+.fx-section {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 0.15rem 0;
+}
+
+.fx-pair {
+  color: #cbd5e1;
+  font-weight: 550;
+}
+
+.fx-nums {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.fx-rate {
+  font-weight: 650;
+  color: #f8fafc;
+}
+
+.fx-change {
+  font-size: 0.72rem;
+  font-weight: 600;
+  min-width: 55px;
+  text-align: right;
+}
+
+/* Gold card */
+.gold-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gold-icon-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #fbbf24;
+}
+
+.gold-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+}
+
+.gold-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.gold-change {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* Gainers Section */
+.gainers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.gainers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.gainer-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 0.15rem 0;
+}
+
+.stock-code {
+  font-weight: 700;
+  color: #38bdf8;
+  width: 45px;
+}
+
+.stock-name {
+  color: #cbd5e1;
+  flex: 1;
+}
+
+.stock-pct {
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   BOTTOM ROW (TOP HOLDINGS + RECENT ACTIVITY + QUICK SEARCH)
+   ========================================================================== */
+
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 0.95fr;
+  gap: 1.25rem;
+}
+
+.bottom-card {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Dashboard Table */
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.dashboard-table th {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid rgba(30, 41, 69, 0.6);
+}
+
+.dashboard-table td {
+  padding: 0.6rem 0.35rem;
+  border-bottom: 1px solid rgba(30, 41, 69, 0.3);
+  color: #cbd5e1;
+}
+
+.dashboard-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.num-col {
+  text-align: right;
+}
+
+.symbol-cell {
+  color: #f8fafc;
+}
+
+.company-cell {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.return-cell {
+  font-weight: 700;
+}
+
+/* Recent Activity */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(30, 41, 69, 0.3);
+}
+
+.activity-row:last-child {
+  border-bottom: 0;
+}
+
+.activity-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.activity-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-buy {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.dot-sell {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+.dot-deposit {
+  background: #0284c7;
+  box-shadow: 0 0 6px #0284c7;
+}
+
+.dot-transfer {
+  background: #38bdf8;
+}
+
+.activity-action-line {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+
+.activity-title {
+  font-size: 0.85rem;
+  color: #f8fafc;
+}
+
+.activity-sub {
+  font-size: 0.78rem;
+}
+
+.activity-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.activity-amount {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.activity-date {
+  font-size: 0.72rem;
+}
+
+/* Quick Search */
+.quick-search-form {
+  margin-top: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.quick-search-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #090e1c;
+  border: 1px solid rgba(30, 41, 69, 0.95);
+  border-radius: 10px;
+  padding: 0.2rem 0.5rem 0.2rem 0.8rem;
+  transition: border-color 0.15s ease;
+}
+
+.quick-search-input-wrapper:focus-within {
+  border-color: #38bdf8;
+}
+
+.quick-search-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  outline: none;
+  padding: 0.5rem 0;
+}
+
+.quick-search-input::placeholder {
+  color: #64748b;
+}
+
+.search-icon-btn {
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0.35rem;
+}
+
+.search-icon-btn:hover {
+  color: #38bdf8;
+}
+
+.popular-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.popular-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.popular-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.stock-pill {
+  background: #141f36;
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stock-pill:hover {
+  background: rgba(2, 132, 199, 0.25);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.quick-search-result {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-name {
+  font-size: 0.75rem;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.result-price {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.quick-search-error {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.quick-search-status {
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ==========================================================================
+   MODULES (MARKETS, MALAYSIA, ANALYTICS)
+   ========================================================================== */
+
+.module-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.market-card {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.market-card-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.market-name {
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.market-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 0.25rem;
+}
+
+.market-price-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.market-change-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Malaysia Page */
+.malaysia-page-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.macro-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.macro-tile {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.macro-tile-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.macro-tile-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.macro-tile-trend {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.macro-tile-sub {
+  font-size: 0.75rem;
+}
+
+.malaysia-split-row {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 1.25rem;
+}
+
+.malaysia-panel {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 69, 0.85);
+  border-radius: 14px;
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-title {
+  font-size: 1rem;
+  font-weight: 750;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.bursa-action-box {
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Analytics Page */
+.analytics-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.analytics-chart-section {
+  width: 100%;
+}
+
+.analytics-details-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.25rem;
+}
+
+.risk-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.risk-item strong {
+  color: #f8fafc;
+  font-size: 0.88rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1200px) {
+  .kpi-grid,
+  .markets-grid,
+  .macro-cards-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-middle-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .malaysia-split-row,
+  .analytics-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-top-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .header-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .kpi-grid,
+  .markets-grid,
+  .macro-cards-row,
+  .analytics-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .malaysia-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
