@@ -1,3 +1,5 @@
+import { formatCurrency } from '../lib/fxService'
+
 interface PortfolioSummaryProps {
   count: number
   totalCost: number
@@ -6,14 +8,6 @@ interface PortfolioSummaryProps {
   pnlPct: number
   onRefreshAll: () => void
   isLoading: boolean
-}
-
-function formatUsdLike(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value)
 }
 
 export function PortfolioSummary({
@@ -36,13 +30,14 @@ export function PortfolioSummary({
 
       <article className="stat-card">
         <span className="stat-label">Total cost</span>
-        <strong className="stat-value">{formatUsdLike(totalCost)}</strong>
-        <span className="stat-hint">Sum of qty × cost (mixed FX shown as raw sum)</span>
+        <strong className="stat-value">{formatCurrency(totalCost, 'MYR')}</strong>
+        <span className="stat-hint">Denominated in MYR (BNM FX converted)</span>
       </article>
 
       <article className="stat-card">
         <span className="stat-label">Market value</span>
-        <strong className="stat-value">{formatUsdLike(totalMarket)}</strong>
+        <strong className="stat-value">{formatCurrency(totalMarket, 'MYR')}</strong>
+        <span className="stat-hint">Denominated in MYR</span>
       </article>
 
       <article className="stat-card accent">
@@ -58,7 +53,7 @@ export function PortfolioSummary({
           </button>
         </div>
         <strong className={`stat-value ${positive ? 'up' : 'down'}`}>
-          {formatUsdLike(pnl)}
+          {positive ? '+' : '-'}{formatCurrency(Math.abs(pnl), 'MYR')}
         </strong>
         <span className={positive ? 'up' : 'down'}>
           {positive ? '+' : ''}

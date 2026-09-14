@@ -1,4 +1,5 @@
 import type { Holding } from '../../types'
+import { convertToBase, formatCurrency } from '../../lib/fxService'
 
 interface TopHoldingsProps {
   holdings: Holding[]
@@ -27,17 +28,17 @@ export function TopHoldings({ holdings, onViewAll }: TopHoldingsProps) {
     holdings.length > 0
       ? holdings.slice(0, 5).map((h) => {
           const cleanSymbol = h.ticker.replace(/\.KL$/i, '')
-          const currPrefix = h.currency === 'USD' ? 'US$ ' : 'RM '
           const totalVal = h.holdings * h.latestPrice
+          const totalBaseVal = h.baseMarketValue ?? (h.holdings * convertToBase(h.latestPrice, h.currency))
           const totalCost = h.holdings * h.costPrice
           const pnlPct = totalCost > 0 ? ((totalVal - totalCost) / totalCost) * 100 : 0
 
           return {
             symbol: cleanSymbol,
             company: h.securityName,
-            price: `${currPrefix}${h.latestPrice.toFixed(2)}`,
+            price: formatCurrency(h.latestPrice, h.currency),
             qty: Number(h.holdings).toLocaleString(),
-            value: `RM ${Number(totalVal).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+            value: formatCurrency(totalBaseVal, 'MYR'),
             returnPct: Number(pnlPct.toFixed(1)),
           }
         })

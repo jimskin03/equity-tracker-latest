@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { lookupSecurity, refreshLatestPrice } from '../api/marketData'
 import { portfolioDb } from '../lib/supabase'
+import { convertToBase, getFxRateToMyr, syncLiveFxRates } from '../lib/fxService'
 import type { Holding, SecurityLookupResult } from '../types'
 
 const LEGACY_STORAGE_KEY = 'equity-tracker-holdings-v1'
@@ -210,6 +211,17 @@ async function fetchHoldings(accountId: string): Promise<Holding[]> {
     if (!security) return []
     const quote = latestPrices.get(holding.security_id)
     const costPrice = Number(holding.average_cost)
+    const latestPrice = quote ? Number(quote.price) : costPrice
+    const currency = quote?.currency || security.currency || 'USD'
+    const fxRateToMyr = getFxRateToMyr(currency)
+    const baseCostPrice = costPrice * fxRateToMyr
+    const baseLatestPrice = latestPrice * fxRateToMyr
+    const qty = Number(holding.quantity)
+    const baseCostValue = qty * baseCostPrice
+    const baseMarketValue = qty * baseLatestPrice
+    const basePnl = baseMarketValue - baseCostValue
+    const basePnlPct = baseCostValue > 0 ? (basePnl / baseCostValue) * 100 : 0
+
     return [{
       id: holding.id,
       securityId: holding.security_id,
@@ -217,11 +229,18 @@ async function fetchHoldings(accountId: string): Promise<Holding[]> {
       figi: security.figi || undefined,
       securityName: security.security_name,
       ticker: security.ticker,
-      holdings: Number(holding.quantity),
+      holdings: qty,
       costPrice,
-      latestPrice: quote ? Number(quote.price) : costPrice,
-      currency: quote?.currency || security.currency,
+      latestPrice,
+      currency,
       updatedAt: quote?.as_of || holding.updated_at,
+      baseCostPrice,
+      baseLatestPrice,
+      baseCostValue,
+      baseMarketValue,
+      basePnl,
+      basePnlPct,
+      fxRateToMyr,
     }]
   })
 }
@@ -290,6 +309,7 @@ export function useHoldings(userId: string) {
       setIsLoading(true)
       setError(null)
       try {
+        await syncLiveFxRates()
         const id = await ensurePortfolioAccount(userId)
         let rows = await fetchHoldings(id)
         let imported = 0
@@ -407,18 +427,26 @@ export function useHoldings(userId: string) {
   }, [accountId, clearMessages, holdings, reload])
 
   const summary = useMemo(() => {
-    const totalCost = holdings.reduce((sum, holding) => sum + holding.holdings * holding.costPrice, 0)
-    const totalMarket = holdings.reduce((sum, holding) => sum + holding.holdings * holding.latestPrice, 0)
+    const totalCost = holdings.reduce((sum, holding) => {
+      const val = holding.baseCostValue ?? (holding.holdings * convertToBase(holding.costPrice, holding.currency))
+      return sum + val
+    }, 0)
+    const totalMarket = holdings.reduce((sum, holding) => {
+      const val = holding.baseMarketValue ?? (holding.holdings * convertToBase(holding.latestPrice, holding.currency))
+      return sum + val
+    }, 0)
     const pnl = totalMarket - totalCost
     const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0
 
     const todayChange = holdings.reduce((sum, holding) => {
       const prev = holding.previousClose ?? holding.latestPrice
-      return sum + (holding.latestPrice - prev) * holding.holdings
+      const delta = (holding.latestPrice - prev) * holding.holdings
+      return sum + convertToBase(delta, holding.currency)
     }, 0)
     const todayBase = holdings.reduce((sum, holding) => {
       const prev = holding.previousClose ?? holding.latestPrice
-      return sum + prev * holding.holdings
+      const prevVal = prev * holding.holdings
+      return sum + convertToBase(prevVal, holding.currency)
     }, 0)
     const todayChangePct = todayBase > 0 ? (todayChange / todayBase) * 100 : 0
 
@@ -430,6 +458,7 @@ export function useHoldings(userId: string) {
       todayChange,
       todayChangePct,
       count: holdings.length,
+      baseCurrency: 'MYR',
     }
   }, [holdings])
 

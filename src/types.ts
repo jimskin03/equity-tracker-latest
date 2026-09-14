@@ -11,6 +11,13 @@ export interface Holding {
   previousClose?: number
   currency: string
   updatedAt: string
+  baseCostPrice?: number
+  baseLatestPrice?: number
+  baseCostValue?: number
+  baseMarketValue?: number
+  basePnl?: number
+  basePnlPct?: number
+  fxRateToMyr?: number
 }
 
 export interface HoldingFormData {

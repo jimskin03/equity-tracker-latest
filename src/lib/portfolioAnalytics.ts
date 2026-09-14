@@ -1,12 +1,19 @@
 import type { Holding, PortfolioAnalyticsMetrics, PortfolioPerformancePoint } from '../types'
+import { convertToBase } from './fxService'
 
 export function calculatePortfolioAnalytics(
   holdings: Holding[],
   series: PortfolioPerformancePoint[],
   riskFreeRate: number = 2.75, // Default to BNM OPR 2.75%
 ): PortfolioAnalyticsMetrics {
-  const totalCost = holdings.reduce((sum, h) => sum + h.holdings * h.costPrice, 0)
-  const totalMarket = holdings.reduce((sum, h) => sum + h.holdings * h.latestPrice, 0)
+  const totalCost = holdings.reduce(
+    (sum, h) => sum + (h.baseCostValue ?? (h.holdings * convertToBase(h.costPrice, h.currency))),
+    0,
+  )
+  const totalMarket = holdings.reduce(
+    (sum, h) => sum + (h.baseMarketValue ?? (h.holdings * convertToBase(h.latestPrice, h.currency))),
+    0,
+  )
   const totalReturn = totalMarket - totalCost
   const totalReturnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
 

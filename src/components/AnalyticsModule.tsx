@@ -3,6 +3,7 @@ import type { PortfolioPerformancePoint } from '../types'
 import { useHoldings } from '../hooks/useHoldings'
 import { buildPerformanceSeries } from '../api/marketHistory'
 import { calculatePortfolioAnalytics } from '../lib/portfolioAnalytics'
+import { convertToBase, formatCurrency } from '../lib/fxService'
 import { PerformanceChart } from './dashboard/PerformanceChart'
 
 interface AnalyticsModuleProps {
@@ -139,9 +140,10 @@ export function AnalyticsModule({ userId }: AnalyticsModuleProps) {
               </thead>
               <tbody>
                 {holdings.map((h) => {
-                  const val = h.holdings * h.latestPrice
-                  const weight = metrics.totalMarket > 0 ? (val / metrics.totalMarket) * 100 : 0
+                  const baseVal = h.baseMarketValue ?? (h.holdings * convertToBase(h.latestPrice, h.currency))
+                  const weight = metrics.totalMarket > 0 ? (baseVal / metrics.totalMarket) * 100 : 0
                   const cost = h.holdings * h.costPrice
+                  const val = h.holdings * h.latestPrice
                   const pnl = cost > 0 ? ((val - cost) / cost) * 100 : 0
                   return (
                     <tr key={h.id}>
@@ -151,8 +153,12 @@ export function AnalyticsModule({ userId }: AnalyticsModuleProps) {
                       </td>
                       <td>{weight.toFixed(1)}%</td>
                       <td className="num-col">
-                        {h.currency === 'USD' ? 'US$ ' : 'RM '}
-                        {val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div>{formatCurrency(baseVal, 'MYR')}</div>
+                        {h.currency !== 'MYR' && (
+                          <small className="muted" style={{ display: 'block', fontSize: '0.75rem' }}>
+                            ({formatCurrency(val, h.currency)})
+                          </small>
+                        )}
                       </td>
                       <td className={`num-col ${pnl >= 0 ? 'pos' : 'neg'}`}>
                         {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%

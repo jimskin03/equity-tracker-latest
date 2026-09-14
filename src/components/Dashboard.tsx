@@ -69,7 +69,7 @@ export function Dashboard({ userId, onNavigate }: DashboardProps) {
 
         <div className="header-meta">
           <div className="malaysia-status-badge">
-            <span className="flag-icon" role="img" aria-label="Malaysia">????</span>
+            <span className="flag-icon" role="img" aria-label="Malaysia">🇲🇾</span>
             <div className="badge-text-group">
               <strong className="badge-title">Malaysia Market</strong>
               <span className="badge-subtitle muted">Live data</span>
@@ -110,7 +110,7 @@ export function Dashboard({ userId, onNavigate }: DashboardProps) {
               onViewMore={() => onNavigate('malaysia')}
             />
           ) : (
-            <div className="loading-card-placeholder">Loading market overview�</div>
+            <div className="loading-card-placeholder">Loading market overview...</div>
           )}
         </div>
       </section>

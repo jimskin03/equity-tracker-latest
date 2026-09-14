@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { lookupSecurity } from '../../api/marketData'
+import { formatCurrency, convertToBase } from '../../lib/fxService'
 import type { SecurityLookupResult } from '../../types'
 
 interface QuickSearchProps {
@@ -67,7 +68,7 @@ export function QuickSearch({ onSelectSecurity, onNavigateToPortfolio }: QuickSe
         </div>
       </form>
 
-      {isLoading && <div className="quick-search-status muted">Looking up security�</div>}
+      {isLoading && <div className="quick-search-status muted">Looking up security...</div>}
       {searchError && <div className="quick-search-error">{searchError}</div>}
 
       {result && (
@@ -77,10 +78,16 @@ export function QuickSearch({ onSelectSecurity, onNavigateToPortfolio }: QuickSe
             <span className="result-name muted">{result.securityName}</span>
           </div>
           <div className="result-actions">
-            <span className="result-price">
-              {result.currency === 'USD' ? 'US$ ' : 'RM '}
-              {result.latestPrice.toFixed(2)}
-            </span>
+            <div className="result-price-box" style={{ textAlign: 'right' }}>
+              <span className="result-price">
+                {formatCurrency(result.latestPrice, result.currency)}
+              </span>
+              {(result.currency || 'MYR').toUpperCase() !== 'MYR' && (
+                <small className="muted" style={{ display: 'block', fontSize: '0.78rem' }}>
+                  ≈ {formatCurrency(convertToBase(result.latestPrice, result.currency), 'MYR')}
+                </small>
+              )}
+            </div>
             <button
               type="button"
               className="btn small primary"

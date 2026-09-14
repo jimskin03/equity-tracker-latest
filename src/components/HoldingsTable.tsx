@@ -1,4 +1,5 @@
 import type { Holding } from '../types'
+import { convertToBase, formatCurrency } from '../lib/fxService'
 
 interface HoldingsTableProps {
   holdings: Holding[]
@@ -85,6 +86,10 @@ export function HoldingsTable({
               const pnlPct = costValue > 0 ? (pnl / costValue) * 100 : 0
               const positive = pnl >= 0
 
+              const baseMarketValue = holding.baseMarketValue ?? convertToBase(marketValue, holding.currency)
+              const basePnl = holding.basePnl ?? convertToBase(pnl, holding.currency)
+              const isForeign = (holding.currency || 'MYR').toUpperCase() !== 'MYR'
+
               return (
                 <tr key={holding.id} className={editingId === holding.id ? 'row-editing' : undefined}>
                   <td>
@@ -103,7 +108,14 @@ export function HoldingsTable({
                       ? formatMoney(holding.latestPrice, holding.currency)
                       : '—'}
                   </td>
-                  <td>{formatMoney(marketValue, holding.currency)}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{formatMoney(marketValue, holding.currency)}</div>
+                    {isForeign && (
+                      <div className="muted" style={{ fontSize: '0.78rem' }}>
+                        ≈ {formatCurrency(baseMarketValue, 'MYR')}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={positive ? 'pnl up' : 'pnl down'}>
                       {formatMoney(pnl, holding.currency)}
@@ -112,6 +124,11 @@ export function HoldingsTable({
                         {pnlPct.toFixed(2)}%
                       </small>
                     </span>
+                    {isForeign && (
+                      <div className="muted" style={{ fontSize: '0.78rem' }}>
+                        ≈ {positive ? '+' : '-'}{formatCurrency(Math.abs(basePnl), 'MYR')}
+                      </div>
+                    )}
                   </td>
                   <td className="muted nowrap">{formatDate(holding.updatedAt)}</td>
                   <td>

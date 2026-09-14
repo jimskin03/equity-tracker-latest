@@ -51,7 +51,7 @@ export function DashboardKpis({
         </div>
         <div className="kpi-value">{formatCurrency(displayVal)}</div>
         <div className={`kpi-trend ${isPnlPositive ? 'pos' : 'neg'}`}>
-          <span className="trend-arrow">{isPnlPositive ? '?' : '?'}</span>
+          <span className="trend-arrow">{isPnlPositive ? '▲' : '▼'}</span>
           <span>
             {isPnlPositive ? '+' : ''}{displayPnlPct.toFixed(2)}% ({isPnlPositive ? '+RM ' : '-RM '}{Math.abs(displayPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
           </span>
