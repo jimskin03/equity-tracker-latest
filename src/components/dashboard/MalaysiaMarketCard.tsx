@@ -27,7 +27,7 @@ export function MalaysiaMarketCard({ overview, onViewMore }: MalaysiaMarketCardP
           {/* FBM KLCI */}
           <div className="klci-row">
             <div className="klci-title">
-              <span className="my-flag" role="img" aria-label="Malaysia flag">????</span>
+              <span className="my-flag" role="img" aria-label="Malaysia flag">🇲🇾</span>
               <strong>FBM KLCI</strong>
             </div>
             <div className="klci-val-box">
@@ -41,7 +41,7 @@ export function MalaysiaMarketCard({ overview, onViewMore }: MalaysiaMarketCardP
           {/* OPR */}
           <div className="macro-row">
             <div className="macro-label">
-              <span className="macro-icon">??</span>
+              <span className="macro-icon">🏛️</span>
               <div>
                 <strong>OPR</strong>
                 <small className="muted"> (Overnight Policy Rate)</small>
@@ -56,7 +56,7 @@ export function MalaysiaMarketCard({ overview, onViewMore }: MalaysiaMarketCardP
           {/* MYOR */}
           <div className="macro-row">
             <div className="macro-label">
-              <span className="macro-icon">??</span>
+              <span className="macro-icon">📊</span>
               <div>
                 <strong>MYOR</strong>
                 <small className="muted"> (3-Month)</small>
@@ -97,7 +97,7 @@ export function MalaysiaMarketCard({ overview, onViewMore }: MalaysiaMarketCardP
           {/* Kijang Emas */}
           <div className="gold-card">
             <div className="gold-icon-title">
-              <span className="gold-bar-icon">??</span>
+              <span className="gold-bar-icon">🪙</span>
               <div>
                 <strong>{gold.name}</strong>
               </div>

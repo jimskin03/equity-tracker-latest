@@ -31,7 +31,7 @@ export function MalaysiaModule({ onNavigateToPortfolio }: MalaysiaModuleProps) {
   }, [])
 
   if (isLoading || !data) {
-    return <section className="module-stack"><div className="loading-indicator">Loading Bank Negara Malaysia & Bursa data�</div></section>
+    return <section className="module-stack"><div className="loading-indicator">Loading Bank Negara Malaysia & Bursa data...</div></section>
   }
 
   const { klci, opr, myor, fx, gold, gainers } = data

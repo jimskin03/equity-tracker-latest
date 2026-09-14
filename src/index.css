@@ -28,11 +28,14 @@ html,
 body,
 #root {
   min-height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
 }
 
 button,
