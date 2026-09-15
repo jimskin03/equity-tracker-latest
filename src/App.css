@@ -3498,3 +3498,13 @@ code {
   }
   .table-card .row-actions .btn { min-height: 40px; padding: 0.5rem 0.35rem; }
 }
+
+/* Copilot stacking guard: keep the interactive drawer above its backdrop. */
+.copilot-backdrop {
+  z-index: 900;
+}
+
+.agent-copilot-drawer {
+  z-index: 910;
+}
+
