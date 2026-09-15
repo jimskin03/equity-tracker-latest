@@ -12,6 +12,22 @@ import {
 
 interface SettingsModuleProps {
   onOpenCopilot?: () => void
+  userEmail?: string
+  onUpdatePassword?: (newPassword: string) => Promise<void>
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
 }
 
 const FALLBACK_MODELS = [
@@ -22,18 +38,57 @@ const FALLBACK_MODELS = [
   { id: 'deepseek-chat', isFree: false },
 ]
 
-export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
+export function SettingsModule({ onOpenCopilot, userEmail, onUpdatePassword }: SettingsModuleProps) {
   const [settings, setSettings] = useState<AiSettings>(getAiSettings)
   const [showPassword, setShowPassword] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [checkResult, setCheckResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [saveBanner, setSaveBanner] = useState<string | null>(null)
 
+  // Account password change state
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+  const [passwordFeedback, setPasswordFeedback] = useState<{ ok: boolean; message: string } | null>(null)
+
   // Dynamic models state
   const [models, setModels] = useState<AiModelInfo[]>(getCachedModels)
   const [isFetchingModels, setIsFetchingModels] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
   const [onlyFreeFilter, setOnlyFreeFilter] = useState(false)
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordFeedback(null)
+    if (!onUpdatePassword) return
+
+    if (newPassword.length < 6) {
+      setPasswordFeedback({ ok: false, message: 'Password must be at least 6 characters long.' })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordFeedback({ ok: false, message: 'Passwords do not match.' })
+      return
+    }
+
+    setIsUpdatingPassword(true)
+    try {
+      await onUpdatePassword(newPassword)
+      setPasswordFeedback({ ok: true, message: 'Password updated successfully!' })
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordFeedback(null), 4000)
+    } catch (err) {
+      setPasswordFeedback({
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setIsUpdatingPassword(false)
+    }
+  }
 
   const apiKeyInputId = useId()
   const apiHostInputId = useId()
@@ -175,6 +230,79 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
           <button type="button" className="banner-close" onClick={() => setSaveBanner(null)}>×</button>
         </div>
       )}
+
+      {/* Account & Security Card */}
+      <div className="settings-card account-security-card" id="account-security">
+        <div className="settings-section">
+          <div className="account-header-row">
+            <div>
+              <h2 className="settings-section-title">Account & Security</h2>
+              <p className="settings-helper-text">
+                Signed in as <strong>{userEmail || 'CryptGreg User'}</strong>. Manage your login password across the finance workspace.
+              </p>
+            </div>
+            <span className="account-status-badge">✓ Active Session</span>
+          </div>
+
+          {passwordFeedback && (
+            <div className={`banner ${passwordFeedback.ok ? 'success' : 'error'}`} role="alert">
+              {passwordFeedback.message}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordChange} className="account-password-form">
+            <div className="account-password-grid">
+              <label className="field">
+                <span>New Password</span>
+                <div className="auth-input-wrapper">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    autoComplete="new-password"
+                    required
+                    disabled={isUpdatingPassword}
+                  />
+                  <button
+                    type="button"
+                    className="auth-eye-btn"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    title={showNewPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    <EyeIcon open={showNewPassword} />
+                  </button>
+                </div>
+              </label>
+
+              <label className="field">
+                <span>Confirm New Password</span>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                  autoComplete="new-password"
+                  required
+                  disabled={isUpdatingPassword}
+                />
+              </label>
+            </div>
+
+            <div className="account-form-actions">
+              <button
+                type="submit"
+                className="btn primary small"
+                disabled={isUpdatingPassword || !newPassword || !confirmPassword}
+              >
+                {isUpdatingPassword ? 'Updating Password…' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       {/* Main Settings Panel */}
       <div className="settings-card">

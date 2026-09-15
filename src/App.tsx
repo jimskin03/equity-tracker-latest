@@ -7,6 +7,7 @@ import { MarketsModule } from './components/MarketsModule'
 import { MalaysiaModule } from './components/MalaysiaModule'
 import { AnalyticsModule } from './components/AnalyticsModule'
 import { SettingsModule } from './components/SettingsModule'
+import { ChangePasswordModal } from './components/ChangePasswordModal'
 import { AgentCopilot } from './components/agent/AgentCopilot'
 import { useAuth } from './hooks/useAuth'
 import { useHoldings } from './hooks/useHoldings'
@@ -34,9 +35,20 @@ function viewFromHash(): View {
 }
 
 function App() {
-  const { session, isLoading, error, signIn, signOut } = useAuth()
+  const {
+    session,
+    isLoading,
+    error,
+    isPasswordRecovery,
+    setIsPasswordRecovery,
+    signIn,
+    signOut,
+    resetPassword,
+    updatePassword,
+  } = useAuth()
   const [view, setView] = useState<View>(viewFromHash)
   const [isCopilotOpen, setIsCopilotOpen] = useState(false)
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
 
   const userId = session?.user?.id || ''
   const holdingsHook = useHoldings(userId)
@@ -71,8 +83,20 @@ function App() {
     [userId, view, holdingsHook, cashBalance, activities]
   )
 
-  if (!session) {
-    return <main className="app-shell signed-out-shell"><AuthGate isLoading={isLoading} error={error} onSignIn={signIn} /></main>
+  if (!session || isPasswordRecovery) {
+    return (
+      <main className="app-shell signed-out-shell">
+        <AuthGate
+          isLoading={isLoading}
+          error={error}
+          onSignIn={signIn}
+          onResetPassword={resetPassword}
+          onUpdatePassword={updatePassword}
+          isPasswordRecovery={isPasswordRecovery}
+          onCancelRecovery={() => setIsPasswordRecovery(false)}
+        />
+      </main>
+    )
   }
 
   return (
@@ -110,7 +134,23 @@ function App() {
         <div className="sidebar-account">
           <span className="muted">Signed in</span>
           <strong title={session.user.email}>{session.user.email || 'CryptGreg user'}</strong>
-          <button className="btn small ghost" type="button" onClick={() => void signOut()}>Sign out</button>
+          <div className="sidebar-account-actions">
+            <button
+              className="btn small ghost sidebar-password-btn"
+              type="button"
+              onClick={() => setIsChangePasswordOpen(true)}
+              title="Change your account password"
+            >
+              Change password
+            </button>
+            <button
+              className="btn small ghost sidebar-signout-btn"
+              type="button"
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
       <main className="workspace-main">
@@ -130,9 +170,21 @@ function App() {
         )}
         {view === 'analytics' && <AnalyticsModule userId={session.user.id} />}
         {view === 'settings' && (
-          <SettingsModule onOpenCopilot={() => setIsCopilotOpen(true)} />
+          <SettingsModule
+            onOpenCopilot={() => setIsCopilotOpen(true)}
+            userEmail={session.user.email}
+            onUpdatePassword={updatePassword}
+          />
         )}
       </main>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        userEmail={session.user.email}
+        onUpdatePassword={updatePassword}
+      />
 
       {/* Persistent Agent Copilot Drawer */}
       <AgentCopilot
