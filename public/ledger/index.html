@@ -1454,6 +1454,30 @@ supabaseClient.auth.getSession().then(({ data: { session } }) => {
   loadAll();
 });
 
+// Listen for parent app message to refresh ledger immediately
+window.addEventListener('message', (e) => {
+  if (e.data && (e.data.type === 'LEDGER_REFRESH' || e.data.type === 'REFRESH_LEDGER')) {
+    loadAll();
+  }
+});
+
+// Re-check on tab focus
+window.addEventListener('focus', () => {
+  if (currentUser) loadAll();
+});
+
+// Realtime Postgres change subscription
+try {
+  supabaseClient
+    .channel('ledger-transactions-realtime')
+    .on('postgres_changes', { event: '*', schema: 'expense', table: 'transactions' }, () => {
+      loadAll();
+    })
+    .subscribe();
+} catch (err) {
+  console.warn('Realtime subscription notice:', err);
+}
+
 document.addEventListener('keydown', (e) => {
   if(e.key === 'n' || e.key === 'N') showPage('addPage');
 });

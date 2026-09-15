@@ -85,6 +85,19 @@ Rules:
 - When a user asks a question about their finances or the market, execute the appropriate tools to obtain factual numbers before answering.
 - Be concise, professional, clear, and highlight exact values (e.g. RM amounts, percentages, tickers).`
 
+function notifyLedgerRefresh() {
+  if (typeof window !== 'undefined') {
+    window.postMessage({ type: 'LEDGER_REFRESH' }, '*')
+    document.querySelectorAll<HTMLIFrameElement>('iframe.ledger-frame').forEach((frame) => {
+      try {
+        frame.contentWindow?.postMessage({ type: 'LEDGER_REFRESH' }, '*')
+      } catch {
+        // cross-origin safety
+      }
+    })
+  }
+}
+
 export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
@@ -115,43 +128,101 @@ export async function executeTool(
           if (acc?.id) {
             accountId = acc.id
           } else if (context.userId) {
-            const { data: newAcc } = await expenseDb
+            const { data: newAcc, error: createAccErr } = await expenseDb
               .from('accounts')
               .upsert({ user_id: context.userId }, { onConflict: 'user_id' })
               .select('id')
               .single()
+            if (createAccErr) throw createAccErr
             if (newAcc?.id) accountId = newAcc.id
           }
 
-          if (accountId) {
-            const dateStr = new Date().toISOString().split('T')[0]
-            const signedAmount = type === 'income' ? amount : -amount
-            const { error: txErr } = await expenseDb.from('transactions').insert({
-              account_id: accountId,
-              type,
-              direction: type === 'income' ? 'in' : 'out',
-              record_date: dateStr,
-              description,
-              amount,
-              signed_amount: signedAmount,
-              status: 'posted',
-              source_type: 'manual',
-            })
-            if (txErr) console.warn('[add_ledger_transaction] DB insert notice:', txErr.message)
+          if (!accountId) {
+            throw new Error(`User ledger account not found for user ID: ${context.userId || 'anonymous'}`)
           }
+
+          // Resolve or auto-categorize
+          let categoryId: string | null = null
+          const rawCat = String(args.category || '').trim()
+          const categoryName =
+            rawCat ||
+            (description.toLowerCase().match(/\b(lunch|dinner|breakfast|food|meal|cafe|coffee|restaurant|groceries)\b/)
+              ? 'Food'
+              : description.toLowerCase().match(/\b(grab|taxi|petrol|fuel|toll|parking|transport)\b/)
+              ? 'Transport'
+              : description.toLowerCase().match(/\b(salary|wage|bonus|freelance|dividend)\b/)
+              ? 'Salary'
+              : description.toLowerCase().match(/\b(rent|rental)\b/)
+              ? 'Rental'
+              : description.toLowerCase().match(/\b(bill|electric|water|internet|telco|utility|utilities)\b/)
+              ? 'Utilities'
+              : '')
+
+          if (categoryName) {
+            try {
+              const { data: cat } = await expenseDb
+                .from('categories')
+                .select('id')
+                .eq('account_id', accountId)
+                .ilike('name', categoryName)
+                .maybeSingle()
+
+              if (cat?.id) {
+                categoryId = cat.id
+              } else {
+                const { data: newCat } = await expenseDb
+                  .from('categories')
+                  .insert({ account_id: accountId, name: categoryName, legacy_category: categoryName })
+                  .select('id')
+                  .maybeSingle()
+                if (newCat?.id) categoryId = newCat.id
+              }
+            } catch (cErr) {
+              console.warn('[add_ledger_transaction] Category lookup notice:', cErr)
+            }
+          }
+
+          const dateStr =
+            (typeof args.date === 'string' && args.date.trim()) ||
+            new Date().toISOString().split('T')[0]
+
+          const insertPayload: Record<string, unknown> = {
+            account_id: accountId,
+            type,
+            direction: type === 'income' ? 'in' : 'out',
+            record_date: dateStr,
+            description,
+            amount,
+            status: 'posted',
+            source_type: 'manual',
+          }
+          if (categoryId) insertPayload.category_id = categoryId
+          if (categoryName) insertPayload.legacy_category = categoryName
+
+          const { data: insertedTx, error: txErr } = await expenseDb
+            .from('transactions')
+            .insert(insertPayload)
+            .select()
+            .single()
+
+          if (txErr) {
+            throw new Error(`Database insert error: ${txErr.message}`)
+          }
+
+          notifyLedgerRefresh()
 
           return JSON.stringify({
             success: true,
-            message: `Recorded ${type} of RM ${amount.toFixed(2)} for "${description}" in ledger.`,
-            type,
-            amount,
-            description,
+            message: `Recorded ${type} of RM ${amount.toFixed(2)} for "${description}"${
+              categoryName ? ` under "${categoryName}"` : ''
+            } in ledger.`,
+            transaction: insertedTx,
           })
         } catch (err) {
           return JSON.stringify({
-            success: true,
-            message: `Logged ${type} of RM ${amount.toFixed(2)} for "${description}".`,
-            error: err instanceof Error ? err.message : String(err),
+            error: `Failed to record ledger transaction: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           })
         }
       }
@@ -199,7 +270,6 @@ export async function executeTool(
           }
           if (typeof args.amount === 'number' && !isNaN(args.amount)) {
             updates.amount = Math.abs(args.amount)
-            updates.signed_amount = newType === 'income' ? Math.abs(args.amount) : -Math.abs(args.amount)
           }
           if (typeof args.description === 'string' && args.description.trim()) {
             updates.description = args.description.trim()
@@ -215,6 +285,8 @@ export async function executeTool(
             .eq('account_id', acc.id)
 
           if (updateErr) throw updateErr
+
+          notifyLedgerRefresh()
 
           return JSON.stringify({
             success: true,
@@ -269,6 +341,8 @@ export async function executeTool(
             .eq('account_id', acc.id)
 
           if (deleteErr) throw deleteErr
+
+          notifyLedgerRefresh()
 
           return JSON.stringify({
             success: true,
