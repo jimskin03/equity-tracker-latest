@@ -1,24 +1,25 @@
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, useMemo } from 'react'
 import {
   getAiSettings,
   saveAiSettings,
   testAiConnection,
+  fetchAvailableModels,
+  getCachedModels,
   computeEndpointPreview,
   type AiSettings,
+  type AiModelInfo,
 } from '../lib/aiSettings'
 
 interface SettingsModuleProps {
   onOpenCopilot?: () => void
 }
 
-const COMMON_MODELS = [
-  'gpt-4o-mini',
-  'gpt-4o',
-  'gpt-4-turbo',
-  'o1-mini',
-  'deepseek-chat',
-  'claude-3-5-sonnet',
-  'llama-3.3-70b',
+const FALLBACK_MODELS = [
+  { id: 'gpt-4o-mini', isFree: false },
+  { id: 'gpt-4o', isFree: false },
+  { id: 'google/gemma-4-26b-a4b-it:free', isFree: true },
+  { id: 'nvidia/nemotron-3.5-lightning:free', isFree: true },
+  { id: 'deepseek-chat', isFree: false },
 ]
 
 export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
@@ -28,12 +29,27 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
   const [checkResult, setCheckResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [saveBanner, setSaveBanner] = useState<string | null>(null)
 
+  // Dynamic models state
+  const [models, setModels] = useState<AiModelInfo[]>(getCachedModels)
+  const [isFetchingModels, setIsFetchingModels] = useState(false)
+  const [modelSearch, setModelSearch] = useState('')
+  const [onlyFreeFilter, setOnlyFreeFilter] = useState(false)
+
   const apiKeyInputId = useId()
   const apiHostInputId = useId()
   const modelInputId = useId()
+  const modelSearchId = useId()
 
   useEffect(() => {
-    setSettings(getAiSettings())
+    const s = getAiSettings()
+    setSettings(s)
+    const cached = getCachedModels()
+    if (cached.length > 0) {
+      setModels(cached)
+      if (cached.some((m) => m.isFree) && s.apiHost.includes('openrouter')) {
+        setOnlyFreeFilter(true)
+      }
+    }
   }, [])
 
   const handleOAuthClick = () => {
@@ -60,9 +76,11 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
     setCheckResult(null)
   }
 
-  const handleModelChange = (val: string) => {
+  const handleModelSelect = (val: string) => {
     const updated = saveAiSettings({ model: val })
     setSettings(updated)
+    setSaveBanner(`Selected model: ${val}`)
+    setTimeout(() => setSaveBanner(null), 2500)
   }
 
   const handleCheckConnection = async () => {
@@ -71,8 +89,32 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
     try {
       const res = await testAiConnection(settings.apiHost, settings.apiKey)
       setCheckResult(res)
+      if (res.ok && res.models.length > 0) {
+        setModels(res.models)
+        if (res.models.some((m) => m.isFree)) {
+          setOnlyFreeFilter(true)
+        }
+      }
     } finally {
       setIsChecking(false)
+    }
+  }
+
+  const handleFetchModels = async () => {
+    setIsFetchingModels(true)
+    try {
+      const res = await fetchAvailableModels(settings.apiHost, settings.apiKey)
+      if (res.ok && res.models.length > 0) {
+        setModels(res.models)
+        const hasFree = res.models.some((m) => m.isFree)
+        if (hasFree) setOnlyFreeFilter(true)
+        setSaveBanner(`Successfully fetched ${res.models.length} models!`)
+      } else {
+        setSaveBanner(res.message || 'Failed to fetch models.')
+      }
+      setTimeout(() => setSaveBanner(null), 3500)
+    } finally {
+      setIsFetchingModels(false)
     }
   }
 
@@ -91,6 +133,25 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
   }
 
   const previewUrl = computeEndpointPreview(settings.apiHost, settings.transport)
+
+  // Filtered models for dropdown / list
+  const filteredModels = useMemo(() => {
+    return models.filter((m) => {
+      if (onlyFreeFilter && !m.isFree) return false
+      if (!modelSearch.trim()) return true
+      const q = modelSearch.toLowerCase()
+      return m.id.toLowerCase().includes(q) || (m.name && m.name.toLowerCase().includes(q))
+    })
+  }, [models, onlyFreeFilter, modelSearch])
+
+  const freeCount = useMemo(() => models.filter((m) => m.isFree).length, [models])
+
+  // Top free models for quick pick chips
+  const topFreeChips = useMemo(() => {
+    const freeModels = models.filter((m) => m.isFree)
+    if (freeModels.length > 0) return freeModels.slice(0, 6)
+    return FALLBACK_MODELS
+  }, [models])
 
   return (
     <section className="module-stack settings-view" aria-label="Settings and AI Configuration">
@@ -157,7 +218,7 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
                 id={apiKeyInputId}
                 type={showPassword ? 'text' : 'password'}
                 className="settings-input"
-                placeholder="sk-..."
+                placeholder="sk-... or sk-or-v1-..."
                 value={settings.apiKey}
                 onChange={(e) => handleApiKeyChange(e.target.value)}
                 autoComplete="off"
@@ -212,44 +273,140 @@ export function SettingsModule({ onOpenCopilot }: SettingsModuleProps) {
               className="settings-input"
               value={settings.apiHost}
               onChange={(e) => handleHostChange(e.target.value)}
-              placeholder="https://api.openai.com"
+              placeholder="https://api.openai.com or https://openrouter.ai"
             />
             <p className="settings-preview-text">
               Preview: <code className="endpoint-preview-code">{previewUrl}</code>
             </p>
           </div>
+
+          <div className="host-quick-chips">
+            <button
+              type="button"
+              className="host-chip"
+              onClick={() => handleHostChange('https://openrouter.ai')}
+            >
+              OpenRouter (openrouter.ai)
+            </button>
+            <button
+              type="button"
+              className="host-chip"
+              onClick={() => handleHostChange('https://api.openai.com')}
+            >
+              OpenAI (api.openai.com)
+            </button>
+            <button
+              type="button"
+              className="host-chip"
+              onClick={() => handleHostChange('http://localhost:11434')}
+            >
+              Ollama (localhost:11434)
+            </button>
+          </div>
         </div>
 
-        {/* 4. Model Selection */}
-        <div className="settings-section">
-          <label htmlFor={modelInputId} className="settings-label">Model Name</label>
+        {/* 4. Model Selection with Live Fetch */}
+        <div className="settings-section model-section">
+          <div className="model-section-header">
+            <label htmlFor={modelInputId} className="settings-label">Model Selection</label>
+            <button
+              type="button"
+              className="fetch-models-btn"
+              disabled={isFetchingModels}
+              onClick={() => void handleFetchModels()}
+            >
+              {isFetchingModels ? 'Fetching...' : '🔄 Fetch Available Models'}
+            </button>
+          </div>
+
           <div className="model-selection-row">
             <input
               id={modelInputId}
               type="text"
-              className="settings-input"
+              className="settings-input model-input"
               value={settings.model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              placeholder="gpt-4o-mini"
-              list="common-models-list"
+              onChange={(e) => handleModelSelect(e.target.value)}
+              placeholder="e.g. google/gemma-4-26b-a4b-it:free or gpt-4o-mini"
             />
-            <datalist id="common-models-list">
-              {COMMON_MODELS.map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
           </div>
-          <div className="model-quick-chips">
-            {COMMON_MODELS.slice(0, 4).map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`model-chip ${settings.model === m ? 'active' : ''}`}
-                onClick={() => handleModelChange(m)}
-              >
-                {m}
-              </button>
-            ))}
+
+          {/* If models are loaded, provide interactive selector */}
+          {models.length > 0 && (
+            <div className="fetched-models-panel">
+              <div className="models-filter-toolbar">
+                <div className="models-stats-tag">
+                  {models.length} models available
+                  {freeCount > 0 && <span className="free-count-pill">{freeCount} free</span>}
+                </div>
+
+                <div className="filter-chips-group">
+                  {freeCount > 0 && (
+                    <button
+                      type="button"
+                      className={`filter-toggle-chip ${onlyFreeFilter ? 'active' : ''}`}
+                      onClick={() => setOnlyFreeFilter(!onlyFreeFilter)}
+                    >
+                      {onlyFreeFilter ? '✓ Free Only' : 'Free Only'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={`filter-toggle-chip ${!onlyFreeFilter ? 'active' : ''}`}
+                    onClick={() => setOnlyFreeFilter(false)}
+                  >
+                    All Models
+                  </button>
+                </div>
+              </div>
+
+              <div className="models-search-row">
+                <input
+                  id={modelSearchId}
+                  type="text"
+                  className="settings-input search-models-input"
+                  placeholder={`Search ${filteredModels.length} models (e.g. gemma, free, claude, deepseek)...`}
+                  value={modelSearch}
+                  onChange={(e) => setModelSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="models-select-container">
+                <select
+                  className="models-select-dropdown"
+                  value={settings.model}
+                  onChange={(e) => handleModelSelect(e.target.value)}
+                  size={Math.min(filteredModels.length + 1, 8)}
+                >
+                  <option value="" disabled>-- Select a model ({filteredModels.length} shown) --</option>
+                  {filteredModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.isFree ? '⭐ [FREE] ' : ''}{m.id} {m.name !== m.id ? `(${m.name})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Pick Chips */}
+          <div className="model-chips-section">
+            <span className="chips-row-label">
+              {models.length > 0 && freeCount > 0 ? 'Popular Free Models:' : 'Popular Models:'}
+            </span>
+            <div className="model-quick-chips">
+              {topFreeChips.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`model-chip ${settings.model === m.id ? 'active' : ''} ${m.isFree ? 'free-badge' : ''}`}
+                  onClick={() => handleModelSelect(m.id)}
+                  title={m.id}
+                >
+                  {m.isFree && <span className="chip-star">★ </span>}
+                  {m.id}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

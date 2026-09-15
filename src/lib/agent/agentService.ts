@@ -263,6 +263,8 @@ async function callLlmEndpoint(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
+    'X-Title': 'CryptGreg Finance',
   }
   if (apiKey) {
     headers['Authorization'] = `Bearer ${apiKey.trim()}`
