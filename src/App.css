@@ -2810,3 +2810,68 @@ code {
   justify-content: flex-end;
 }
 
+/* Holdings: phone-only card presentation. Kept at EOF so it cannot alter
+   or nest inside the existing responsive blocks above. */
+@media (max-width: 640px) {
+  .table-card .table-wrap { overflow: visible; }
+  .table-card .table-wrap table { min-width: 0; }
+  .table-card table,
+  .table-card tbody,
+  .table-card tr,
+  .table-card td { display: block; width: 100%; }
+
+  .table-card thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .table-card tbody { display: grid; gap: 0.75rem; }
+  .table-card tbody tr {
+    padding: 0.8rem;
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.28);
+  }
+
+  .table-card tbody td {
+    display: grid;
+    grid-template-columns: minmax(5.8rem, 0.75fr) minmax(0, 1.25fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.48rem 0;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.48);
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .table-card tbody td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: left;
+  }
+
+  .table-card tbody td:last-child { border-bottom: 0; padding-bottom: 0; }
+  .table-card .security-cell,
+  .table-card .pnl { min-width: 0; align-items: flex-end; }
+  .table-card code { font-size: 0.76rem; word-break: break-all; }
+  .table-card .nowrap { white-space: normal; }
+  .table-card .holdings-actions-cell { display: block; text-align: left; }
+  .table-card .holdings-actions-cell::before { display: block; margin-bottom: 0.5rem; }
+  .table-card .row-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+  .table-card .row-actions .btn { min-height: 40px; padding: 0.5rem 0.35rem; }
+}

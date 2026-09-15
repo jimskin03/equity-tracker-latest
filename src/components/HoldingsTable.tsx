@@ -92,23 +92,23 @@ export function HoldingsTable({
 
               return (
                 <tr key={holding.id} className={editingId === holding.id ? 'row-editing' : undefined}>
-                  <td>
+                  <td data-label="Security">
                     <div className="security-cell">
                       <strong>{holding.securityName}</strong>
                       <span className="muted">{holding.ticker}</span>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="ISIN">
                     <code>{holding.isin || holding.figi || '—'}</code>
                   </td>
-                  <td>{formatNumber(holding.holdings)}</td>
-                  <td>{formatMoney(holding.costPrice, holding.currency)}</td>
-                  <td>
+                  <td data-label="Qty">{formatNumber(holding.holdings)}</td>
+                  <td data-label="Cost">{formatMoney(holding.costPrice, holding.currency)}</td>
+                  <td data-label="Latest">
                     {holding.latestPrice > 0
                       ? formatMoney(holding.latestPrice, holding.currency)
                       : '—'}
                   </td>
-                  <td>
+                  <td data-label="Market value">
                     <div style={{ fontWeight: 600 }}>{formatMoney(marketValue, holding.currency)}</div>
                     {isForeign && (
                       <div className="muted" style={{ fontSize: '0.78rem' }}>
@@ -116,7 +116,7 @@ export function HoldingsTable({
                       </div>
                     )}
                   </td>
-                  <td>
+                  <td data-label="P/L">
                     <span className={positive ? 'pnl up' : 'pnl down'}>
                       {formatMoney(pnl, holding.currency)}
                       <small>
@@ -130,8 +130,8 @@ export function HoldingsTable({
                       </div>
                     )}
                   </td>
-                  <td className="muted nowrap">{formatDate(holding.updatedAt)}</td>
-                  <td>
+                  <td data-label="Updated" className="muted nowrap">{formatDate(holding.updatedAt)}</td>
+                  <td data-label="Actions" className="holdings-actions-cell">
                     <div className="row-actions">
                       <button
                         type="button"
