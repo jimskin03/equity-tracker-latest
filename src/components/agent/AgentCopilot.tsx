@@ -15,11 +15,35 @@ interface AgentCopilotProps {
 
 const QUICK_PROMPTS = [
   '📊 Summarize my portfolio performance',
+  '👉 Navigate to the Ledger tab',
   '🇲🇾 What is the BNM OPR and KLCI status?',
   '📈 Calculate quantitative risk metrics',
   '🔄 Refresh all latest stock prices',
-  '💰 What is my cash balance in the ledger?',
+  '💰 Log lunch expense: RM 17.20',
 ]
+
+const NAV_LINKS = [
+  { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
+  { id: 'ledger', label: 'Ledger', icon: '≋' },
+  { id: 'portfolio', label: 'Portfolio', icon: '↗' },
+  { id: 'markets', label: 'Markets', icon: 'ılı' },
+  { id: 'malaysia', label: 'Malaysia', icon: '🇲🇾' },
+  { id: 'analytics', label: 'Analytics', icon: '◷' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
+]
+
+function getNavigationSuggestions(text: string): Array<{ id: string; label: string }> {
+  const lower = text.toLowerCase()
+  const results: Array<{ id: string; label: string }> = []
+  if (lower.includes('ledger')) results.push({ id: 'ledger', label: 'Ledger' })
+  if (lower.includes('portfolio')) results.push({ id: 'portfolio', label: 'Portfolio' })
+  if (lower.includes('malaysia')) results.push({ id: 'malaysia', label: 'Malaysia Market' })
+  if (lower.includes('market') && !lower.includes('malaysia')) results.push({ id: 'markets', label: 'Markets' })
+  if (lower.includes('analytics')) results.push({ id: 'analytics', label: 'Analytics' })
+  if (lower.includes('dashboard')) results.push({ id: 'dashboard', label: 'Dashboard' })
+  if (lower.includes('setting')) results.push({ id: 'settings', label: 'Settings' })
+  return results
+}
 
 export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -133,10 +157,29 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         </div>
       </header>
 
+      {/* Quick Portal Navigation Strip */}
+      <div className="copilot-nav-strip">
+        <span className="nav-strip-label">Portal:</span>
+        <div className="nav-strip-items">
+          {NAV_LINKS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-strip-btn ${portalContext.currentView === item.id ? 'active' : ''}`}
+              onClick={() => portalContext.onNavigate(item.id)}
+              title={`Switch to ${item.label}`}
+            >
+              <span className="strip-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Warning banner if not configured */}
       {!isConfigured && (
         <div className="copilot-unconfigured-banner">
-          <p>⚠️ OpenAI API key or OAuth login is required for autonomous agent execution.</p>
+          <p>⚠️ OpenAI or OpenRouter API key is required for autonomous agent execution.</p>
           <button
             type="button"
             className="btn small primary"
@@ -157,7 +200,7 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
             <div className="welcome-avatar">⚡</div>
             <h3>Autonomous Financial Agent</h3>
             <p className="muted small">
-              I can browse your portfolio, analyze Bank Negara Malaysia macro indicators, search securities, refresh market quotes, and execute live actions.
+              I can navigate between views, browse your portfolio, record ledger expenses, analyze Bank Negara Malaysia indicators, and execute live actions.
             </p>
 
             <div className="quick-prompt-chips-grid">
@@ -209,9 +252,31 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
               )}
 
               {/* Message Content */}
-              <div className={`copilot-bubble ${msg.role}`}>
-                {msg.content}
-              </div>
+              {msg.role === 'assistant' ? (
+                <>
+                  <div className={`copilot-bubble ${msg.role}`}>
+                    {msg.content}
+                  </div>
+                  {getNavigationSuggestions(msg.content).length > 0 && (
+                    <div className="bubble-nav-actions">
+                      {getNavigationSuggestions(msg.content).map((target) => (
+                        <button
+                          key={target.id}
+                          type="button"
+                          className="bubble-nav-btn"
+                          onClick={() => portalContext.onNavigate(target.id)}
+                        >
+                          👉 Switch to {target.label} View
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className={`copilot-bubble ${msg.role}`}>
+                  {msg.content}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -263,7 +328,7 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         <input
           type="text"
           className="copilot-input"
-          placeholder={isConfigured ? 'Ask agent to browse or execute...' : 'Configure API key in Settings first...'}
+          placeholder={isConfigured ? 'Ask agent to browse, execute, or navigate...' : 'Configure API key in Settings first...'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading || !isConfigured}

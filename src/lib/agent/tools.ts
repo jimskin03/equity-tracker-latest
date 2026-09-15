@@ -16,7 +16,7 @@ export const AGENT_TOOLS: OpenAIToolDefinition[] = [
     type: 'function',
     function: {
       name: 'navigate_view',
-      description: 'Navigate the portal UI to a specific screen or module (dashboard, portfolio, ledger, markets, malaysia, analytics, settings).',
+      description: 'Navigate the portal UI to a specific screen or module (dashboard, portfolio, ledger, markets, malaysia, analytics, settings). Call this immediately whenever the user asks to navigate, go to, switch to, open, or view any screen or tab.',
       parameters: {
         type: 'object',
         properties: {
@@ -27,6 +27,36 @@ export const AGENT_TOOLS: OpenAIToolDefinition[] = [
           },
         },
         required: ['view'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_ledger_transaction',
+      description: 'Record an income or expense transaction directly into the user\'s financial ledger (e.g. lunch, food, transport, groceries, salary, utility bill). Call this whenever the user reports an expense or income.',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['expense', 'income'],
+            description: 'Whether this is an expense or income transaction',
+          },
+          amount: {
+            type: 'number',
+            description: 'The transaction amount in MYR (e.g. 17.20)',
+          },
+          description: {
+            type: 'string',
+            description: 'Description or note (e.g. "Lunch today", "Dinner with team", "Petrol")',
+          },
+          category: {
+            type: 'string',
+            description: 'Optional category (e.g. "Food", "Transport", "Utilities", "General")',
+          },
+        },
+        required: ['type', 'amount', 'description'],
       },
     },
   },

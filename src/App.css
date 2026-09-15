@@ -2143,6 +2143,94 @@ code {
   background: rgba(2, 6, 23, 0.5);
 }
 
+.copilot-nav-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  background: rgba(2, 6, 23, 0.7);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.nav-strip-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.nav-strip-items {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+}
+
+.nav-strip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0.22rem 0.55rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  flex-shrink: 0;
+}
+
+.nav-strip-btn:hover {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: #38bdf8;
+  color: #f1f5f9;
+}
+
+.nav-strip-btn.active {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.strip-icon {
+  color: #7dd3fc;
+}
+
+.bubble-nav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.bubble-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(37, 99, 235, 0.2));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bubble-nav-btn:hover {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(37, 99, 235, 0.35));
+  border-color: #38bdf8;
+  color: #f8fafc;
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.25);
+}
+
 .copilot-header-left {
   display: flex;
   align-items: center;

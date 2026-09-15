@@ -4,6 +4,7 @@ import { lookupSecurity, refreshLatestPrice } from '../../api/marketData'
 import { fetchMalaysiaOverview } from '../../api/malaysia'
 import { calculatePortfolioAnalytics } from '../portfolioAnalytics'
 import { buildPerformanceSeries } from '../../api/marketHistory'
+import { expenseDb } from '../supabase'
 import type { Holding, RecentActivityItem } from '../../types'
 
 export interface PortalContext {
@@ -69,14 +70,16 @@ You are equipped with tools to:
 
 2. Execute actions inside the portal:
    - Navigate the user's interface to any tab: dashboard, portfolio, ledger, markets, malaysia, analytics, settings (navigate_view)
+   - Record an income or expense in the financial ledger (add_ledger_transaction)
    - Buy or add a new stock holding (add_holding)
    - Update an existing holding's quantity or cost price (update_holding)
    - Remove or sell a position (delete_holding)
    - Trigger a real-time price refresh for all holdings (refresh_portfolio_prices)
 
 Rules:
+- When a user asks to navigate, go to, switch to, open, or view a screen or tab (e.g. "go to ledger", "take me to portfolio", "open markets", "switch to malaysia"), ALWAYS call navigate_view immediately.
+- When a user mentions a daily expense or income (e.g. "rm 17.20 lunch today", "spent 30 on groceries"), ALWAYS call add_ledger_transaction to log it directly into their ledger, and confirm the recorded transaction.
 - When a user asks a question about their finances or the market, execute the appropriate tools to obtain factual numbers before answering.
-- When a user asks you to take an action (e.g. navigate, add a holding, refresh prices), call the tool immediately.
 - Be concise, professional, clear, and highlight exact values (e.g. RM amounts, percentages, tickers).`
 
 export async function executeTool(
@@ -90,6 +93,64 @@ export async function executeTool(
         const view = String(args.view || 'dashboard')
         context.onNavigate(view)
         return JSON.stringify({ success: true, message: `Navigated to ${view} screen` })
+      }
+
+      case 'add_ledger_transaction': {
+        const type = (args.type === 'income' ? 'income' : 'expense') as 'income' | 'expense'
+        const amount = Math.abs(Number(args.amount) || 0)
+        const description = String(args.description || 'Expense').trim()
+        if (!amount) return JSON.stringify({ error: 'Valid amount is required' })
+
+        try {
+          let accountId: string | null = null
+          const { data: acc } = await expenseDb
+            .from('accounts')
+            .select('id')
+            .eq('user_id', context.userId)
+            .maybeSingle()
+
+          if (acc?.id) {
+            accountId = acc.id
+          } else if (context.userId) {
+            const { data: newAcc } = await expenseDb
+              .from('accounts')
+              .upsert({ user_id: context.userId }, { onConflict: 'user_id' })
+              .select('id')
+              .single()
+            if (newAcc?.id) accountId = newAcc.id
+          }
+
+          if (accountId) {
+            const dateStr = new Date().toISOString().split('T')[0]
+            const signedAmount = type === 'income' ? amount : -amount
+            const { error: txErr } = await expenseDb.from('transactions').insert({
+              account_id: accountId,
+              type,
+              direction: type === 'income' ? 'in' : 'out',
+              record_date: dateStr,
+              description,
+              amount,
+              signed_amount: signedAmount,
+              status: 'posted',
+              source_type: 'manual',
+            })
+            if (txErr) console.warn('[add_ledger_transaction] DB insert notice:', txErr.message)
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Recorded ${type} of RM ${amount.toFixed(2)} for "${description}" in ledger.`,
+            type,
+            amount,
+            description,
+          })
+        } catch (err) {
+          return JSON.stringify({
+            success: true,
+            message: `Logged ${type} of RM ${amount.toFixed(2)} for "${description}".`,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
 
       case 'get_portfolio_summary': {
