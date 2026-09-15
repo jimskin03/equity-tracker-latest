@@ -447,7 +447,8 @@ export async function executeTool(
 async function callLlmEndpoint(
   url: string,
   apiKey: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -464,9 +465,14 @@ async function callLlmEndpoint(
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
+      signal,
     })
     return res
-  } catch {
+  } catch (err: unknown) {
+    // If request was aborted by user, rethrow immediately without trying proxy
+    if (signal?.aborted || (err as Error)?.name === 'AbortError') {
+      throw err
+    }
     // If direct fetch fails (CORS or network policy), forward through backend proxy
     const proxyRes = await fetch('/api/ai/proxy', {
       method: 'POST',
@@ -477,6 +483,7 @@ async function callLlmEndpoint(
         headers,
         body: payload,
       }),
+      signal,
     })
     return proxyRes
   }
@@ -485,7 +492,8 @@ async function callLlmEndpoint(
 export async function runAgentConversation(
   conversation: ChatMessage[],
   context: PortalContext,
-  onToolStep?: (step: ToolExecutionStep) => void
+  onToolStep?: (step: ToolExecutionStep) => void,
+  signal?: AbortSignal
 ): Promise<{ reply: string; toolSteps: ToolExecutionStep[] }> {
   const settings = getAiSettings()
 
@@ -493,6 +501,10 @@ export async function runAgentConversation(
     throw new Error(
       'OpenAI API Key is missing. Please go to Settings to configure your API Key or enable OAuth.'
     )
+  }
+
+  if (signal?.aborted) {
+    throw new DOMException('Generation stopped by user', 'AbortError')
   }
 
   const cleanHost = normalizeHost(settings.apiHost)
@@ -521,6 +533,10 @@ export async function runAgentConversation(
   const maxIterations = 6
 
   while (iterations < maxIterations) {
+    if (signal?.aborted) {
+      throw new DOMException('Generation stopped by user', 'AbortError')
+    }
+
     iterations++
 
     const requestBody: Record<string, unknown> = {
@@ -531,7 +547,11 @@ export async function runAgentConversation(
       temperature: 0.2,
     }
 
-    const response = await callLlmEndpoint(endpointUrl, settings.apiKey, requestBody)
+    const response = await callLlmEndpoint(endpointUrl, settings.apiKey, requestBody, signal)
+
+    if (signal?.aborted) {
+      throw new DOMException('Generation stopped by user', 'AbortError')
+    }
 
     if (!response.ok) {
       const errText = await response.text()
@@ -559,6 +579,10 @@ export async function runAgentConversation(
       apiMessages.push(assistantMsg)
 
       for (const tc of assistantMsg.tool_calls) {
+        if (signal?.aborted) {
+          throw new DOMException('Generation stopped by user', 'AbortError')
+        }
+
         const toolName = tc.function?.name
         let parsedArgs: Record<string, unknown> = {}
         try {
@@ -581,6 +605,10 @@ export async function runAgentConversation(
         stepRecord.result = resultStr
         executedSteps.push(stepRecord)
         onToolStep?.(stepRecord)
+
+        if (signal?.aborted) {
+          throw new DOMException('Generation stopped by user', 'AbortError')
+        }
 
         // Send tool output back as tool message
         apiMessages.push({

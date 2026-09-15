@@ -2575,3 +2575,78 @@ code {
   cursor: not-allowed;
 }
 
+.copilot-stop-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.copilot-stop-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.45);
+  transform: translateY(-1px);
+}
+
+.copilot-stop-btn:active {
+  transform: translateY(0);
+}
+
+.copilot-stop-btn .stop-icon {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.copilot-thinking-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.copilot-thinking-stop-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+.copilot-thinking-stop-btn:hover {
+  background: rgba(239, 68, 68, 0.28);
+  color: #ffffff;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.active-steps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.active-steps-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  font-weight: 600;
+}
+

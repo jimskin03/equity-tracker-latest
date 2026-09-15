@@ -45,6 +45,14 @@ function getNavigationSuggestions(text: string): Array<{ id: string; label: stri
   return results
 }
 
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'AbortError') return true
+  if (err instanceof Error && (err.name === 'AbortError' || err.message.toLowerCase().includes('aborted') || err.message.toLowerCase().includes('abort error'))) {
+    return true
+  }
+  return false
+}
+
 export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -52,6 +60,8 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
   const [activeSteps, setActiveSteps] = useState<ToolExecutionStep[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const activeStepsRef = useRef<ToolExecutionStep[]>([])
 
   const settings = getAiSettings()
   const isConfigured = Boolean(settings.apiKey || settings.useOAuth)
@@ -59,6 +69,18 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, activeSteps, isLoading])
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+  }
 
   const handleSend = async (userPrompt?: string) => {
     const text = (userPrompt || input).trim()
@@ -78,6 +100,10 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
     setMessages(updatedHistory)
     setIsLoading(true)
     setActiveSteps([])
+    activeStepsRef.current = []
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     try {
       const response = await runAgentConversation(
@@ -86,14 +112,12 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         (step) => {
           setActiveSteps((prev) => {
             const idx = prev.findIndex((s) => s.toolCallId === step.toolCallId)
-            if (idx >= 0) {
-              const copy = [...prev]
-              copy[idx] = step
-              return copy
-            }
-            return [...prev, step]
+            const next = idx >= 0 ? prev.map((s, i) => (i === idx ? step : s)) : [...prev, step]
+            activeStepsRef.current = next
+            return next
           })
-        }
+        },
+        controller.signal
       )
 
       const assistantMsg: ChatMessage = {
@@ -106,16 +130,36 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
 
       setMessages((prev) => [...prev, assistantMsg])
       setActiveSteps([])
+      activeStepsRef.current = []
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err))
+      if (isAbortError(err)) {
+        const executed = activeStepsRef.current.filter((s) => s.status === 'success')
+        const stoppedMsg: ChatMessage = {
+          id: `asst-${Date.now()}`,
+          role: 'assistant',
+          content: '⏹ Generation stopped by user.',
+          toolSteps: executed.length > 0 ? executed : undefined,
+          createdAt: Date.now(),
+        }
+        setMessages((prev) => [...prev, stoppedMsg])
+        setActiveSteps([])
+        activeStepsRef.current = []
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : String(err))
+      }
     } finally {
       setIsLoading(false)
+      abortControllerRef.current = null
     }
   }
 
   const handleClearHistory = () => {
+    if (isLoading) {
+      handleStop()
+    }
     setMessages([])
     setActiveSteps([])
+    activeStepsRef.current = []
     setErrorMessage(null)
   }
 
@@ -284,6 +328,17 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         {/* Live executing steps */}
         {isLoading && activeSteps.length > 0 && (
           <div className="tool-steps-container active-steps">
+            <div className="active-steps-header">
+              <span className="active-steps-title">Agent Actions</span>
+              <button
+                type="button"
+                className="copilot-thinking-stop-btn"
+                onClick={handleStop}
+                title="Stop generation"
+              >
+                ⏹ Stop
+              </button>
+            </div>
             {activeSteps.map((step) => (
               <div key={step.toolCallId} className="tool-step-card running">
                 <div className="tool-step-summary">
@@ -299,10 +354,20 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         {/* Thinking Indicator */}
         {isLoading && activeSteps.length === 0 && (
           <div className="copilot-bubble-group assistant">
-            <div className="copilot-bubble assistant thinking">
-              <span className="dot" />
-              <span className="dot" />
-              <span className="dot" />
+            <div className="copilot-thinking-wrapper">
+              <div className="copilot-bubble assistant thinking">
+                <span className="dot" />
+                <span className="dot" />
+                <span className="dot" />
+              </div>
+              <button
+                type="button"
+                className="copilot-thinking-stop-btn"
+                onClick={handleStop}
+                title="Stop generation"
+              >
+                ⏹ Stop
+              </button>
             </div>
           </div>
         )}
@@ -333,14 +398,27 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading || !isConfigured}
         />
-        <button
-          type="submit"
-          className="copilot-send-btn"
-          disabled={isLoading || !input.trim() || !isConfigured}
-          aria-label="Send prompt"
-        >
-          {isLoading ? '...' : '→'}
-        </button>
+        {isLoading ? (
+          <button
+            type="button"
+            className="copilot-stop-btn"
+            onClick={handleStop}
+            title="Stop generation"
+            aria-label="Stop generation"
+          >
+            <span className="stop-icon">■</span>
+            <span>Stop</span>
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="copilot-send-btn"
+            disabled={!input.trim() || !isConfigured}
+            aria-label="Send prompt"
+          >
+            →
+          </button>
+        )}
       </form>
     </aside>
   )
