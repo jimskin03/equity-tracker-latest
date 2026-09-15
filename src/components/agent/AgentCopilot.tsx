@@ -22,16 +22,6 @@ const QUICK_PROMPTS = [
   '💰 Log lunch expense: RM 17.20',
 ]
 
-const NAV_LINKS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
-  { id: 'ledger', label: 'Ledger', icon: '≋' },
-  { id: 'portfolio', label: 'Portfolio', icon: '↗' },
-  { id: 'markets', label: 'Markets', icon: 'ılı' },
-  { id: 'malaysia', label: 'Malaysia', icon: '🇲🇾' },
-  { id: 'analytics', label: 'Analytics', icon: '◷' },
-  { id: 'settings', label: 'Settings', icon: '⚙' },
-]
-
 function getNavigationSuggestions(text: string): Array<{ id: string; label: string }> {
   const lower = text.toLowerCase()
   const results: Array<{ id: string; label: string }> = []
@@ -200,25 +190,6 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
           </button>
         </div>
       </header>
-
-      {/* Quick Portal Navigation Strip */}
-      <div className="copilot-nav-strip">
-        <span className="nav-strip-label">Portal:</span>
-        <div className="nav-strip-items">
-          {NAV_LINKS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`nav-strip-btn ${portalContext.currentView === item.id ? 'active' : ''}`}
-              onClick={() => portalContext.onNavigate(item.id)}
-              title={`Switch to ${item.label}`}
-            >
-              <span className="strip-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Warning banner if not configured */}
       {!isConfigured && (
