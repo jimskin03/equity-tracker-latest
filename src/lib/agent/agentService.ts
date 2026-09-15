@@ -71,6 +71,8 @@ You are equipped with tools to:
 2. Execute actions inside the portal:
    - Navigate the user's interface to any tab: dashboard, portfolio, ledger, markets, malaysia, analytics, settings (navigate_view)
    - Record an income or expense in the financial ledger (add_ledger_transaction)
+   - Modify or edit an existing ledger entry (update_ledger_transaction)
+   - Delete or remove a ledger entry (delete_ledger_transaction)
    - Buy or add a new stock holding (add_holding)
    - Update an existing holding's quantity or cost price (update_holding)
    - Remove or sell a position (delete_holding)
@@ -78,7 +80,8 @@ You are equipped with tools to:
 
 Rules:
 - When a user asks to navigate, go to, switch to, open, or view a screen or tab (e.g. "go to ledger", "take me to portfolio", "open markets", "switch to malaysia"), ALWAYS call navigate_view immediately.
-- When a user mentions a daily expense or income (e.g. "rm 17.20 lunch today", "spent 30 on groceries"), ALWAYS call add_ledger_transaction to log it directly into their ledger, and confirm the recorded transaction.
+- When a user reports a daily expense or income (e.g. "rm 17.20 lunch today", "spent 30 on groceries"), ALWAYS call add_ledger_transaction to log it directly into their ledger.
+- When a user asks to modify, edit, or delete an entry (e.g. "change lunch to RM 18", "delete lunch expense", "delete AAPL holding"), call the appropriate update or delete tool immediately.
 - When a user asks a question about their finances or the market, execute the appropriate tools to obtain factual numbers before answering.
 - Be concise, professional, clear, and highlight exact values (e.g. RM amounts, percentages, tickers).`
 
@@ -149,6 +152,131 @@ export async function executeTool(
             success: true,
             message: `Logged ${type} of RM ${amount.toFixed(2)} for "${description}".`,
             error: err instanceof Error ? err.message : String(err),
+          })
+        }
+      }
+
+      case 'update_ledger_transaction': {
+        const query = String(args.transactionIdOrDescription || '').trim()
+        if (!query) return JSON.stringify({ error: 'transactionIdOrDescription is required' })
+
+        try {
+          const { data: acc } = await expenseDb
+            .from('accounts')
+            .select('id')
+            .eq('user_id', context.userId)
+            .maybeSingle()
+
+          if (!acc) return JSON.stringify({ error: 'No expense ledger account found' })
+
+          const { data: txs } = await expenseDb
+            .from('transactions')
+            .select('id, type, description, amount, record_date')
+            .eq('account_id', acc.id)
+            .order('record_date', { ascending: false })
+            .limit(50)
+
+          const cleanQuery = query.toLowerCase().replace(/^exp-/, '')
+          const target = (txs || []).find(
+            (t) =>
+              t.id.toLowerCase() === cleanQuery ||
+              t.id.toLowerCase().includes(cleanQuery) ||
+              (t.description && t.description.toLowerCase().includes(cleanQuery)) ||
+              (query.length > 0 && Math.abs(Number(t.amount) - Number(query)) < 0.01)
+          )
+
+          if (!target) {
+            return JSON.stringify({
+              error: `Could not find transaction matching "${query}" in recent ledger entries.`,
+            })
+          }
+
+          const updates: Record<string, unknown> = {}
+          const newType = (args.type === 'income' || args.type === 'expense') ? args.type : target.type
+          if (args.type) {
+            updates.type = newType
+            updates.direction = newType === 'income' ? 'in' : 'out'
+          }
+          if (typeof args.amount === 'number' && !isNaN(args.amount)) {
+            updates.amount = Math.abs(args.amount)
+            updates.signed_amount = newType === 'income' ? Math.abs(args.amount) : -Math.abs(args.amount)
+          }
+          if (typeof args.description === 'string' && args.description.trim()) {
+            updates.description = args.description.trim()
+          }
+          if (typeof args.record_date === 'string' && args.record_date.trim()) {
+            updates.record_date = args.record_date.trim()
+          }
+
+          const { error: updateErr } = await expenseDb
+            .from('transactions')
+            .update(updates)
+            .eq('id', target.id)
+            .eq('account_id', acc.id)
+
+          if (updateErr) throw updateErr
+
+          return JSON.stringify({
+            success: true,
+            message: `Updated ledger transaction "${target.description}". New details: ${JSON.stringify(updates)}`,
+          })
+        } catch (err) {
+          return JSON.stringify({
+            error: `Failed to update ledger transaction: ${err instanceof Error ? err.message : String(err)}`,
+          })
+        }
+      }
+
+      case 'delete_ledger_transaction': {
+        const query = String(args.transactionIdOrDescription || '').trim()
+        if (!query) return JSON.stringify({ error: 'transactionIdOrDescription is required' })
+
+        try {
+          const { data: acc } = await expenseDb
+            .from('accounts')
+            .select('id')
+            .eq('user_id', context.userId)
+            .maybeSingle()
+
+          if (!acc) return JSON.stringify({ error: 'No expense ledger account found' })
+
+          const { data: txs } = await expenseDb
+            .from('transactions')
+            .select('id, type, description, amount, record_date')
+            .eq('account_id', acc.id)
+            .order('record_date', { ascending: false })
+            .limit(50)
+
+          const cleanQuery = query.toLowerCase().replace(/^exp-/, '')
+          const target = (txs || []).find(
+            (t) =>
+              t.id.toLowerCase() === cleanQuery ||
+              t.id.toLowerCase().includes(cleanQuery) ||
+              (t.description && t.description.toLowerCase().includes(cleanQuery)) ||
+              (query.length > 0 && Math.abs(Number(t.amount) - Number(query)) < 0.01)
+          )
+
+          if (!target) {
+            return JSON.stringify({
+              error: `Could not find transaction matching "${query}" in recent ledger entries.`,
+            })
+          }
+
+          const { error: deleteErr } = await expenseDb
+            .from('transactions')
+            .delete()
+            .eq('id', target.id)
+            .eq('account_id', acc.id)
+
+          if (deleteErr) throw deleteErr
+
+          return JSON.stringify({
+            success: true,
+            message: `Deleted ledger transaction: RM ${Number(target.amount).toFixed(2)} ("${target.description}")`,
+          })
+        } catch (err) {
+          return JSON.stringify({
+            error: `Failed to delete ledger transaction: ${err instanceof Error ? err.message : String(err)}`,
           })
         }
       }

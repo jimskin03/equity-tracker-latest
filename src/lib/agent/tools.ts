@@ -63,6 +63,57 @@ export const AGENT_TOOLS: OpenAIToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'update_ledger_transaction',
+      description: 'Modify or edit an existing expense or income entry in the financial ledger (e.g. correct amount, change description, date, or category).',
+      parameters: {
+        type: 'object',
+        properties: {
+          transactionIdOrDescription: {
+            type: 'string',
+            description: 'The transaction ID (e.g. "exp-...") or keywords to match the entry (e.g. "lunch today", "dinner", "petrol")',
+          },
+          amount: {
+            type: 'number',
+            description: 'New amount in MYR (optional)',
+          },
+          description: {
+            type: 'string',
+            description: 'New description or note (optional)',
+          },
+          type: {
+            type: 'string',
+            enum: ['expense', 'income'],
+            description: 'Change type to expense or income (optional)',
+          },
+          record_date: {
+            type: 'string',
+            description: 'New transaction date in YYYY-MM-DD format (optional)',
+          },
+        },
+        required: ['transactionIdOrDescription'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_ledger_transaction',
+      description: 'Delete or remove an expense or income entry from the financial ledger.',
+      parameters: {
+        type: 'object',
+        properties: {
+          transactionIdOrDescription: {
+            type: 'string',
+            description: 'The transaction ID or keywords to match the entry to delete (e.g. "lunch today", "dinner", "17.20")',
+          },
+        },
+        required: ['transactionIdOrDescription'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_portfolio_summary',
       description: "Get the high-level summary of the user's equity portfolio, including total market value, total cost, P&L, today's change, and holdings count in MYR.",
       parameters: {
