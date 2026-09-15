@@ -179,7 +179,8 @@ function App() {
         />
       )}
 
-      <aside className={`mobile-nav-drawer ${isMobileMenuOpen ? 'open' : ''}`} aria-label="Mobile navigation">
+      {isMobileMenuOpen && (
+        <aside className="mobile-nav-drawer open" aria-label="Mobile navigation">
         <div className="mobile-drawer-account">
           <div className="mobile-drawer-user-meta">
             <span className="mobile-user-icon">👤</span>
@@ -244,7 +245,8 @@ function App() {
             🚪 Sign out
           </button>
         </div>
-      </aside>
+        </aside>
+      )}
 
       {/* Desktop Sidebar (> 768px) */}
       <aside className="workspace-sidebar">
