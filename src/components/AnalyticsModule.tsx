@@ -129,45 +129,47 @@ export function AnalyticsModule({ userId }: AnalyticsModuleProps) {
           {holdings.length === 0 ? (
             <p className="muted small">No active holdings recorded. Add positions in the Portfolio tab.</p>
           ) : (
-            <table className="dashboard-table">
-              <thead>
-                <tr>
-                  <th>Listing</th>
-                  <th>Weight</th>
-                  <th className="num-col">Market Value</th>
-                  <th className="num-col">Return</th>
-                </tr>
-              </thead>
-              <tbody>
-                {holdings.map((h) => {
-                  const baseVal = h.baseMarketValue ?? (h.holdings * convertToBase(h.latestPrice, h.currency))
-                  const weight = metrics.totalMarket > 0 ? (baseVal / metrics.totalMarket) * 100 : 0
-                  const cost = h.holdings * h.costPrice
-                  const val = h.holdings * h.latestPrice
-                  const pnl = cost > 0 ? ((val - cost) / cost) * 100 : 0
-                  return (
-                    <tr key={h.id}>
-                      <td>
-                        <strong>{h.ticker.replace(/\.KL$/i, '')}</strong>
-                        <small className="muted" style={{ display: 'block' }}>{h.securityName}</small>
-                      </td>
-                      <td>{weight.toFixed(1)}%</td>
-                      <td className="num-col">
-                        <div>{formatCurrency(baseVal, 'MYR')}</div>
-                        {h.currency !== 'MYR' && (
-                          <small className="muted" style={{ display: 'block', fontSize: '0.75rem' }}>
-                            ({formatCurrency(val, h.currency)})
-                          </small>
-                        )}
-                      </td>
-                      <td className={`num-col ${pnl >= 0 ? 'pos' : 'neg'}`}>
-                        {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Listing</th>
+                    <th>Weight</th>
+                    <th className="num-col">Market Value</th>
+                    <th className="num-col">Return</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holdings.map((h) => {
+                    const baseVal = h.baseMarketValue ?? (h.holdings * convertToBase(h.latestPrice, h.currency))
+                    const weight = metrics.totalMarket > 0 ? (baseVal / metrics.totalMarket) * 100 : 0
+                    const cost = h.holdings * h.costPrice
+                    const val = h.holdings * h.latestPrice
+                    const pnl = cost > 0 ? ((val - cost) / cost) * 100 : 0
+                    return (
+                      <tr key={h.id}>
+                        <td>
+                          <strong>{h.ticker.replace(/\.KL$/i, '')}</strong>
+                          <small className="muted" style={{ display: 'block' }}>{h.securityName}</small>
+                        </td>
+                        <td>{weight.toFixed(1)}%</td>
+                        <td className="num-col">
+                          <div>{formatCurrency(baseVal, 'MYR')}</div>
+                          {h.currency !== 'MYR' && (
+                            <small className="muted" style={{ display: 'block', fontSize: '0.75rem' }}>
+                              ({formatCurrency(val, h.currency)})
+                            </small>
+                          )}
+                        </td>
+                        <td className={`num-col ${pnl >= 0 ? 'pos' : 'neg'}`}>
+                          {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </article>
 

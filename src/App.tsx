@@ -49,6 +49,7 @@ function App() {
   const [view, setView] = useState<View>(viewFromHash)
   const [isCopilotOpen, setIsCopilotOpen] = useState(false)
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const userId = session?.user?.id || ''
   const holdingsHook = useHoldings(userId)
@@ -56,14 +57,31 @@ function App() {
   const { activities } = useRecentActivity(userId)
 
   useEffect(() => {
-    const onHashChange = () => setView(viewFromHash())
+    const onHashChange = () => {
+      setView(viewFromHash())
+      setIsMobileMenuOpen(false)
+    }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
+  // Lock body scroll when mobile navigation drawer is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileMenuOpen])
+
   const navigate = (next: View) => {
     window.location.hash = next === 'dashboard' ? '' : `/${next}`
     setView(next)
+    setIsMobileMenuOpen(false)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
   const portalContext: PortalContext = useMemo(
@@ -101,6 +119,134 @@ function App() {
 
   return (
     <div className="workspace-shell">
+      {/* Mobile Top Header (<= 768px) */}
+      <header className="workspace-mobile-header">
+        <button
+          className="brand-button mobile-brand-btn"
+          type="button"
+          onClick={() => navigate('dashboard')}
+        >
+          <span className="brand-mark">CG</span>
+          <span className="mobile-brand-title">
+            <strong>CryptGreg</strong>
+            <small>Finance</small>
+          </span>
+        </button>
+
+        <div className="mobile-header-actions">
+          <button
+            type="button"
+            className={`btn small mobile-copilot-btn ${isCopilotOpen ? 'active' : ''}`}
+            onClick={() => {
+              setIsCopilotOpen(!isCopilotOpen)
+              setIsMobileMenuOpen(false)
+            }}
+            aria-label="Toggle Agent Copilot"
+          >
+            <span>🤖</span>
+            <span className="mobile-copilot-text">Copilot</span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-hamburger-btn"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMobileMenuOpen}
+          >
+            {isMobileMenuOpen ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Navigation Drawer Backdrop & Sheet */}
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-drawer-backdrop"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`mobile-nav-drawer ${isMobileMenuOpen ? 'open' : ''}`} aria-label="Mobile navigation">
+        <div className="mobile-drawer-account">
+          <div className="mobile-drawer-user-meta">
+            <span className="mobile-user-icon">👤</span>
+            <div>
+              <span className="muted small" style={{ display: 'block', fontSize: '0.72rem' }}>Signed in as</span>
+              <strong className="mobile-drawer-email" title={session.user.email}>
+                {session.user.email || 'CryptGreg user'}
+              </strong>
+            </div>
+          </div>
+          <span className="mobile-live-pill">● Online</span>
+        </div>
+
+        <nav className="mobile-drawer-nav" aria-label="Finance modules">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={view === item.id ? 'mobile-nav-item active' : 'mobile-nav-item'}
+              onClick={() => navigate(item.id)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="mobile-nav-label">{item.label}</span>
+              {view === item.id && <span className="active-indicator">Current</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mobile-drawer-copilot">
+          <button
+            type="button"
+            className="mobile-copilot-full-btn"
+            onClick={() => {
+              setIsCopilotOpen(true)
+              setIsMobileMenuOpen(false)
+            }}
+          >
+            <span>🤖</span>
+            <span>Open AI Agent Copilot</span>
+          </button>
+        </div>
+
+        <div className="mobile-drawer-actions">
+          <button
+            className="btn small ghost mobile-action-btn"
+            type="button"
+            onClick={() => {
+              setIsChangePasswordOpen(true)
+              setIsMobileMenuOpen(false)
+            }}
+          >
+            🔑 Change password
+          </button>
+          <button
+            className="btn small ghost mobile-action-btn signout"
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false)
+              void signOut()
+            }}
+          >
+            🚪 Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* Desktop Sidebar (> 768px) */}
       <aside className="workspace-sidebar">
         <button className="brand-button" type="button" onClick={() => navigate('dashboard')}>
           <span className="brand-mark">CG</span>

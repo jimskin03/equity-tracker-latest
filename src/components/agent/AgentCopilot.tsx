@@ -156,7 +156,13 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
   if (!isOpen) return null
 
   return (
-    <aside className="agent-copilot-drawer" aria-label="AI Copilot Assistant">
+    <>
+      <div
+        className="copilot-backdrop"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside className="agent-copilot-drawer" aria-label="AI Copilot Assistant">
       {/* Header */}
       <header className="copilot-header">
         <div className="copilot-header-left">
@@ -392,5 +398,6 @@ export function AgentCopilot({ isOpen, onClose, portalContext }: AgentCopilotPro
         )}
       </form>
     </aside>
-  )
+  </>
+)
 }
