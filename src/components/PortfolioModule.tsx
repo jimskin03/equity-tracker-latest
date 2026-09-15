@@ -5,10 +5,14 @@ import { PortfolioSummary } from './PortfolioSummary'
 import { useHoldings } from '../hooks/useHoldings'
 import type { Holding, HoldingFormData } from '../types'
 
-interface PortfolioModuleProps { userId: string }
+interface PortfolioModuleProps {
+  userId: string
+  holdingsHook?: ReturnType<typeof useHoldings>
+}
 
-export function PortfolioModule({ userId }: PortfolioModuleProps) {
-  const { holdings, isLoading, error, status, summary, addHolding, updateHolding, deleteHolding, refreshAllPrices, clearMessages } = useHoldings(userId)
+export function PortfolioModule({ userId, holdingsHook }: PortfolioModuleProps) {
+  const fallbackHook = useHoldings(userId)
+  const { holdings, isLoading, error, status, summary, addHolding, updateHolding, deleteHolding, refreshAllPrices, clearMessages } = holdingsHook || fallbackHook
   const [editing, setEditing] = useState<Holding | null>(null)
 
   const handleCreate = async (data: HoldingFormData) => addHolding(data.isin, Number(data.holdings), Number(data.costPrice)).then(() => undefined)

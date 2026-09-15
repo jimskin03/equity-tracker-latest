@@ -50,6 +50,43 @@ function sendBadGateway(res, label) {
   }
 }
 
+// AI OpenAI-compatible endpoint proxy (resolves browser CORS)
+app.post('/api/ai/proxy', async (req, res) => {
+  let bodyBuffer
+  try {
+    bodyBuffer = await readRequestBody(req)
+  } catch {
+    return res.status(400).json({ error: 'Could not read request body' })
+  }
+
+  try {
+    const parsed = JSON.parse(bodyBuffer.toString('utf8') || '{}')
+    const { url, method = 'POST', headers = {}, body } = parsed
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: 'Missing target url in proxy request' })
+    }
+
+    const fetchOptions = {
+      method,
+      headers: { ...headers },
+    }
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body)
+      if (!fetchOptions.headers['content-type'] && !fetchOptions.headers['Content-Type']) {
+        fetchOptions.headers['Content-Type'] = 'application/json'
+      }
+    }
+
+    const upstream = await fetch(url, fetchOptions)
+    const contentType = upstream.headers.get('content-type') || 'application/json'
+    const text = await upstream.text()
+    return res.status(upstream.status).type(contentType).send(text)
+  } catch (err) {
+    console.error('[ai proxy error]', err.message)
+    return res.status(502).json({ error: `Proxy failed: ${err.message}` })
+  }
+})
+
 // POST lookups are served from the cache or fetched directly; anything else
 // falls through to the proxy below.
 app.use('/api/openfigi', async (req, res, next) => {
